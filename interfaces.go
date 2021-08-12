@@ -21,3 +21,6 @@ type UpMigration = func(context.Context, *sql.Tx) error
 // migrations. This is the non-transactional form of `UpMigration` and
 // should only be used in rare situations.
 type UpMigrationConn = func(context.Context, *sql.Conn) error
+
+// MigrationOption describes options used to create a new migration.
+type MigrationOption = func(*Migration) error

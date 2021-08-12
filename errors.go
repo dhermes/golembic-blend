@@ -20,4 +20,7 @@ var (
 	// ErrAlreadyRegistered is the error returned when a migration has already been
 	// registered.
 	ErrAlreadyRegistered = ex.Class("Migration has already been registered")
+	// ErrNilInterface is the error returned when a value satisfying an interface
+	// is nil in a context where it is not allowed.
+	ErrNilInterface = ex.Class("Value satisfying interface was nil")
 )
