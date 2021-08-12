@@ -24,13 +24,11 @@ type GenerateConfig struct {
 // GenerateSuite generates a suite of migrations from a sequence of golembic
 // migrations.
 func GenerateSuite(gc GenerateConfig) (*migration.Suite, error) {
-	_, createTable := createMigrationsSQL(gc)
+	statements := createMigrationsStatements(gc)
 	groups := []*migration.Group{
 		migration.NewGroupWithAction(
 			migration.TableNotExists(gc.MetadataTable),
-			migration.Statements(
-				createTable,
-			),
+			migration.Statements(statements...),
 		),
 	}
 	// TODO: Add group for every registered migration.

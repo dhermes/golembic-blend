@@ -38,3 +38,8 @@ func createMigrationsSQL(gc GenerateConfig) (CreateTableParameters, string) {
 	)
 	return ctp, statement
 }
+
+func createMigrationsStatements(gc GenerateConfig) []string {
+	_, createTable := createMigrationsSQL(gc)
+	return []string{createTable}
+}
