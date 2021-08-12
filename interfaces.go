@@ -30,7 +30,7 @@ type UpMigrationConn = func(context.Context, *sql.Conn) error
 type migrationsFilter = func(latest string) (int, []Migration, error)
 
 // ManagerOption describes options used to create a new manager.
-type ManagerOption = func(*Manager)
+type ManagerOption = func(*Manager) error
 
 // MigrationOption describes options used to create a new migration.
 type MigrationOption = func(*Migration) error

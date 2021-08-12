@@ -34,14 +34,17 @@ type Manager struct {
 	DevelopmentMode bool
 }
 
-// NewManager creates a new config for generating a migrations
-// suite.
-func NewManager(opts ...ManagerOption) Manager {
-	m := Manager{MetadataTable: DefaultMetadataTable}
+// NewManager creates a new manager for orchestrating migrations.
+func NewManager(opts ...ManagerOption) (*Manager, error) {
+	m := &Manager{MetadataTable: DefaultMetadataTable}
 	for _, opt := range opts {
-		opt(&m)
+		err := opt(m)
+		if err != nil {
+			return nil, err
+		}
 	}
-	return m
+
+	return m, nil
 }
 
 // InsertMigration inserts a migration into the migrations metadata table.
