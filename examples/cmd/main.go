@@ -18,7 +18,7 @@ func run() error {
 		return err
 	}
 
-	gc := golembic.NewGenerateConfig(golembic.OptSequence(migrations))
+	gc := golembic.NewManager(golembic.OptSequence(migrations))
 	suite, err := golembic.GenerateSuite(gc)
 	if err != nil {
 		return err

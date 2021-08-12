@@ -14,15 +14,18 @@ const (
 	DefaultMetadataTable = "golembic_migrations"
 )
 
-type GenerateConfig struct {
+// Manager orchestrates database operations done via `Up` / `UpConn` as well as
+// supporting operations such as writing rows into a migration metadata table
+// during a migration.
+type Manager struct {
 	// MetadataTable is the name of the table that stores migration metadata.
 	// The expected default value (`DefaultMetadataTable`) is
 	// "golembic_migrations".
 	MetadataTable string
 	// Sequence is the collection of registered migrations to be applied,
-	// verified, described, etc. by this generate config.
+	// verified, described, etc. by this manager.
 	Sequence *Migrations
-	// DevelopmentMode is a flag indicating that this generate config is currently
+	// DevelopmentMode is a flag indicating that this manager is currently
 	// being run in development mode, so things like extra validation should
 	// intentionally be disabled. This is intended for use in testing and
 	// development, where an entire database is spun up locally (e.g. in Docker)
@@ -31,22 +34,22 @@ type GenerateConfig struct {
 	DevelopmentMode bool
 }
 
-// NewGenerateConfig creates a new config for generating a migrations
+// NewManager creates a new config for generating a migrations
 // suite.
-func NewGenerateConfig(opts ...GenerateConfigOption) GenerateConfig {
-	gc := GenerateConfig{MetadataTable: DefaultMetadataTable}
+func NewManager(opts ...ManagerOption) Manager {
+	m := Manager{MetadataTable: DefaultMetadataTable}
 	for _, opt := range opts {
-		opt(&gc)
+		opt(&m)
 	}
-	return gc
+	return m
 }
 
 // InsertMigration inserts a migration into the migrations metadata table.
-func (gc *GenerateConfig) InsertMigration(ctx context.Context, pool *db.Connection, tx *sql.Tx, migration Migration) error {
+func (m *Manager) InsertMigration(ctx context.Context, pool *db.Connection, tx *sql.Tx, migration Migration) error {
 	if migration.Previous == "" {
 		statement := fmt.Sprintf(
 			"INSERT INTO %s (serial_id, revision, previous) VALUES (0, %s, NULL)",
-			providerQuoteIdentifier(gc.MetadataTable),
+			providerQuoteIdentifier(m.MetadataTable),
 			providerQueryParameter(1),
 		)
 		_, err := pool.Invoke(db.OptContext(ctx), db.OptTx(tx)).Exec(statement, migration.Revision)
@@ -55,7 +58,7 @@ func (gc *GenerateConfig) InsertMigration(ctx context.Context, pool *db.Connecti
 
 	statement := fmt.Sprintf(
 		"INSERT INTO %s (serial_id, revision, previous) VALUES (%s, %s, %s)",
-		providerQuoteIdentifier(gc.MetadataTable),
+		providerQuoteIdentifier(m.MetadataTable),
 		providerQueryParameter(1),
 		providerQueryParameter(2),
 		providerQueryParameter(3),

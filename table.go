@@ -58,7 +58,7 @@ type CreateTableParameters struct {
 	CreatedAt string
 }
 
-func createMigrationsSQL(gc GenerateConfig) (CreateTableParameters, string) {
+func createMigrationsSQL(gc Manager) (CreateTableParameters, string) {
 	table := gc.MetadataTable
 	ctp := providerNewCreateTableParameters()
 
@@ -75,7 +75,7 @@ func createMigrationsSQL(gc GenerateConfig) (CreateTableParameters, string) {
 
 // pkMigrationsSQL ensures the `revision` is used as the primary key in
 // the table.
-func pkMigrationsSQL(gc GenerateConfig) string {
+func pkMigrationsSQL(gc Manager) string {
 	table := gc.MetadataTable
 	pkConstraint := fmt.Sprintf("pk_%s_revision", table)
 
@@ -88,7 +88,7 @@ func pkMigrationsSQL(gc GenerateConfig) string {
 
 // fkPreviousMigrationsSQL ensures the `previous` column is always a foreign
 // key to an existing `revision` (or `NULL`).
-func fkPreviousMigrationsSQL(gc GenerateConfig) string {
+func fkPreviousMigrationsSQL(gc Manager) string {
 	table := gc.MetadataTable
 	fkConstraint := fmt.Sprintf("fk_%s_previous", table)
 
@@ -100,7 +100,7 @@ func fkPreviousMigrationsSQL(gc GenerateConfig) string {
 }
 
 // uqSerialID ensures the `serial_id` column is UNIQUE.
-func uqSerialID(gc GenerateConfig) string {
+func uqSerialID(gc Manager) string {
 	table := gc.MetadataTable
 	uqConstraint := fmt.Sprintf("uq_%s_serial_id", table)
 
@@ -112,7 +112,7 @@ func uqSerialID(gc GenerateConfig) string {
 }
 
 // nonNegativeSerialID ensures the `serial_id` is not a negative number.
-func nonNegativeSerialID(gc GenerateConfig) string {
+func nonNegativeSerialID(gc Manager) string {
 	table := gc.MetadataTable
 	chkConstraint := fmt.Sprintf("chk_%s_serial_id", table)
 
@@ -124,7 +124,7 @@ func nonNegativeSerialID(gc GenerateConfig) string {
 }
 
 // uqPreviousMigrationsSQL ensures the `previous` column is UNIQUE.
-func uqPreviousMigrationsSQL(gc GenerateConfig) string {
+func uqPreviousMigrationsSQL(gc Manager) string {
 	table := gc.MetadataTable
 	uqConstraint := fmt.Sprintf("uq_%s_previous", table)
 
@@ -137,7 +137,7 @@ func uqPreviousMigrationsSQL(gc GenerateConfig) string {
 
 // noCyclesMigrationsSQL ensures no cycles can be introduced by having
 // `previous` equal to `revision` in a row.
-func noCyclesMigrationsSQL(gc GenerateConfig) string {
+func noCyclesMigrationsSQL(gc Manager) string {
 	table := gc.MetadataTable
 	chkConstraint := fmt.Sprintf("chk_%s_previous_neq_revision", table)
 
@@ -151,7 +151,7 @@ func noCyclesMigrationsSQL(gc GenerateConfig) string {
 // singleRootMigrationsSQL exactly **one** root migration (i.e. one with
 // `previous=NULL`) can be stored in the table. Additionally it makes sure
 // that `serial_id = 0` must be the root as well.
-func singleRootMigrationsSQL(gc GenerateConfig) string {
+func singleRootMigrationsSQL(gc Manager) string {
 	table := gc.MetadataTable
 	nullPreviousIndex := fmt.Sprintf("chk_%s_null_previous", table)
 
@@ -162,7 +162,7 @@ func singleRootMigrationsSQL(gc GenerateConfig) string {
 	)
 }
 
-func createMigrationsStatements(gc GenerateConfig) []string {
+func createMigrationsStatements(gc Manager) []string {
 	_, createTable := createMigrationsSQL(gc)
 	return []string{
 		createTable,
