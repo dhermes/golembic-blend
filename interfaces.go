@@ -27,3 +27,6 @@ type GenerateConfigOption = func(*GenerateConfig)
 
 // MigrationOption describes options used to create a new migration.
 type MigrationOption = func(*Migration) error
+
+// ApplyOption describes options used to create an apply configuration.
+type ApplyOption = func(*ApplyConfig) error
