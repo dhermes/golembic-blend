@@ -10,11 +10,11 @@ import (
 
 // GenerateSuite generates a suite of migrations from a sequence of golembic
 // migrations.
-func GenerateSuite(gc Manager) (*migration.Suite, error) {
-	statements := createMigrationsStatements(gc)
+func GenerateSuite(m Manager) (*migration.Suite, error) {
+	statements := createMigrationsStatements(m)
 	groups := []*migration.Group{
 		migration.NewGroupWithAction(
-			migration.TableNotExists(gc.MetadataTable),
+			migration.TableNotExists(m.MetadataTable),
 			migration.Statements(statements...),
 		),
 	}

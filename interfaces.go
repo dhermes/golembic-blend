@@ -29,7 +29,7 @@ type UpMigrationConn = func(context.Context, *sql.Conn) error
 // number of existing migrations that were filtered out.
 type migrationsFilter = func(latest string) (int, []Migration, error)
 
-// ManagerOption describes options used to create a new generate config.
+// ManagerOption describes options used to create a new manager.
 type ManagerOption = func(*Manager)
 
 // MigrationOption describes options used to create a new migration.

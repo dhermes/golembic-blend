@@ -58,8 +58,8 @@ type CreateTableParameters struct {
 	CreatedAt string
 }
 
-func createMigrationsSQL(gc Manager) (CreateTableParameters, string) {
-	table := gc.MetadataTable
+func createMigrationsSQL(m Manager) (CreateTableParameters, string) {
+	table := m.MetadataTable
 	ctp := providerNewCreateTableParameters()
 
 	statement := fmt.Sprintf(
@@ -75,8 +75,8 @@ func createMigrationsSQL(gc Manager) (CreateTableParameters, string) {
 
 // pkMigrationsSQL ensures the `revision` is used as the primary key in
 // the table.
-func pkMigrationsSQL(gc Manager) string {
-	table := gc.MetadataTable
+func pkMigrationsSQL(m Manager) string {
+	table := m.MetadataTable
 	pkConstraint := fmt.Sprintf("pk_%s_revision", table)
 
 	return fmt.Sprintf(
@@ -88,8 +88,8 @@ func pkMigrationsSQL(gc Manager) string {
 
 // fkPreviousMigrationsSQL ensures the `previous` column is always a foreign
 // key to an existing `revision` (or `NULL`).
-func fkPreviousMigrationsSQL(gc Manager) string {
-	table := gc.MetadataTable
+func fkPreviousMigrationsSQL(m Manager) string {
+	table := m.MetadataTable
 	fkConstraint := fmt.Sprintf("fk_%s_previous", table)
 
 	return fmt.Sprintf(
@@ -100,8 +100,8 @@ func fkPreviousMigrationsSQL(gc Manager) string {
 }
 
 // uqSerialID ensures the `serial_id` column is UNIQUE.
-func uqSerialID(gc Manager) string {
-	table := gc.MetadataTable
+func uqSerialID(m Manager) string {
+	table := m.MetadataTable
 	uqConstraint := fmt.Sprintf("uq_%s_serial_id", table)
 
 	return fmt.Sprintf(
@@ -112,8 +112,8 @@ func uqSerialID(gc Manager) string {
 }
 
 // nonNegativeSerialID ensures the `serial_id` is not a negative number.
-func nonNegativeSerialID(gc Manager) string {
-	table := gc.MetadataTable
+func nonNegativeSerialID(m Manager) string {
+	table := m.MetadataTable
 	chkConstraint := fmt.Sprintf("chk_%s_serial_id", table)
 
 	return fmt.Sprintf(
@@ -124,8 +124,8 @@ func nonNegativeSerialID(gc Manager) string {
 }
 
 // uqPreviousMigrationsSQL ensures the `previous` column is UNIQUE.
-func uqPreviousMigrationsSQL(gc Manager) string {
-	table := gc.MetadataTable
+func uqPreviousMigrationsSQL(m Manager) string {
+	table := m.MetadataTable
 	uqConstraint := fmt.Sprintf("uq_%s_previous", table)
 
 	return fmt.Sprintf(
@@ -137,8 +137,8 @@ func uqPreviousMigrationsSQL(gc Manager) string {
 
 // noCyclesMigrationsSQL ensures no cycles can be introduced by having
 // `previous` equal to `revision` in a row.
-func noCyclesMigrationsSQL(gc Manager) string {
-	table := gc.MetadataTable
+func noCyclesMigrationsSQL(m Manager) string {
+	table := m.MetadataTable
 	chkConstraint := fmt.Sprintf("chk_%s_previous_neq_revision", table)
 
 	return fmt.Sprintf(
@@ -151,8 +151,8 @@ func noCyclesMigrationsSQL(gc Manager) string {
 // singleRootMigrationsSQL exactly **one** root migration (i.e. one with
 // `previous=NULL`) can be stored in the table. Additionally it makes sure
 // that `serial_id = 0` must be the root as well.
-func singleRootMigrationsSQL(gc Manager) string {
-	table := gc.MetadataTable
+func singleRootMigrationsSQL(m Manager) string {
+	table := m.MetadataTable
 	nullPreviousIndex := fmt.Sprintf("chk_%s_null_previous", table)
 
 	return fmt.Sprintf(
@@ -162,16 +162,16 @@ func singleRootMigrationsSQL(gc Manager) string {
 	)
 }
 
-func createMigrationsStatements(gc Manager) []string {
-	_, createTable := createMigrationsSQL(gc)
+func createMigrationsStatements(m Manager) []string {
+	_, createTable := createMigrationsSQL(m)
 	return []string{
 		createTable,
-		pkMigrationsSQL(gc),
-		fkPreviousMigrationsSQL(gc),
-		uqSerialID(gc),
-		nonNegativeSerialID(gc),
-		uqPreviousMigrationsSQL(gc),
-		noCyclesMigrationsSQL(gc),
-		singleRootMigrationsSQL(gc),
+		pkMigrationsSQL(m),
+		fkPreviousMigrationsSQL(m),
+		uqSerialID(m),
+		nonNegativeSerialID(m),
+		uqPreviousMigrationsSQL(m),
+		noCyclesMigrationsSQL(m),
+		singleRootMigrationsSQL(m),
 	}
 }

@@ -1,22 +1,22 @@
 package golembic
 
-// OptMetadataTable sets the metadata table name on a generate config.
+// OptMetadataTable sets the metadata table name on a manager.
 func OptMetadataTable(table string) ManagerOption {
-	return func(gc *Manager) {
-		gc.MetadataTable = table
+	return func(m *Manager) {
+		m.MetadataTable = table
 	}
 }
 
-// OptSequence sets the migrations sequence on a generate config.
+// OptSequence sets the migrations sequence on a manager.
 func OptSequence(migrations *Migrations) ManagerOption {
-	return func(gc *Manager) {
-		gc.Sequence = migrations
+	return func(m *Manager) {
+		m.Sequence = migrations
 	}
 }
 
-// OptDevelopmentMode sets the development mode flag on a generate config.
+// OptDevelopmentMode sets the development mode flag on a manager.
 func OptDevelopmentMode(mode bool) ManagerOption {
-	return func(gc *Manager) {
-		gc.DevelopmentMode = mode
+	return func(m *Manager) {
+		m.DevelopmentMode = mode
 	}
 }
