@@ -22,5 +22,8 @@ type UpMigration = func(context.Context, *sql.Tx) error
 // should only be used in rare situations.
 type UpMigrationConn = func(context.Context, *sql.Conn) error
 
+// GenerateConfigOption describes options used to create a new generate config.
+type GenerateConfigOption = func(*GenerateConfig)
+
 // MigrationOption describes options used to create a new migration.
 type MigrationOption = func(*Migration) error

@@ -32,7 +32,7 @@ ALTER TABLE %[1]s
 `
 	uqPreviousMigrationsTableSQL = `
 ALTER TABLE %[1]s
-  ADD CONSTRAINT %[1]s UNIQUE (previous)
+  ADD CONSTRAINT %[2]s UNIQUE (previous)
 	`
 
 	noCyclesMigrationsTableSQL = `
