@@ -32,7 +32,7 @@ func run() error {
 		return err
 	}
 
-	return suite.Apply(ctx, pool)
+	return golembic.ApplyDynamic(ctx, suite, pool)
 }
 
 func main() {
