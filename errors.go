@@ -23,4 +23,7 @@ var (
 	// ErrNilInterface is the error returned when a value satisfying an interface
 	// is nil in a context where it is not allowed.
 	ErrNilInterface = ex.Class("Value satisfying interface was nil")
+	// ErrCannotPassMilestone is the error returned when a migration sequence
+	// contains a milestone migration that is **NOT** the last step.
+	ErrCannotPassMilestone = ex.Class("If a migration sequence contains a milestone, it must be the last migration")
 )

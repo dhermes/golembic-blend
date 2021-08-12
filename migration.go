@@ -4,6 +4,10 @@ import (
 	"time"
 )
 
+const (
+	milestoneSuffix = " [MILESTONE]"
+)
+
 // Migration represents an individual migration to be applied; typically as
 // a set of SQL statements.
 type Migration struct {
