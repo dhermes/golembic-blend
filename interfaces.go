@@ -3,6 +3,8 @@ package golembic
 import (
 	"context"
 	"database/sql"
+
+	"github.com/blend/go-sdk/db"
 )
 
 // UpMigration defines a function interface to be used for up / forward
@@ -15,12 +17,12 @@ import (
 // transaction. If a migration cannot run inside a transaction, e.g. a
 // `CREATE UNIQUE INDEX CONCURRENTLY` statement, then the `UpMigration`
 // interface should be used.
-type UpMigration = func(context.Context, *sql.Tx) error
+type UpMigration = func(context.Context, *db.Connection, *sql.Tx) error
 
 // UpMigrationConn defines a function interface to be used for up / forward
 // migrations. This is the non-transactional form of `UpMigration` and
 // should only be used in rare situations.
-type UpMigrationConn = func(context.Context, *sql.Conn) error
+type UpMigrationConn = func(context.Context, *db.Connection) error
 
 // migrationsFilter defines a function interface that filters migrations
 // based on the `latest` revision. It's expected that a migrations filter

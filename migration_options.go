@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"io/ioutil"
 
+	"github.com/blend/go-sdk/db"
 	"github.com/blend/go-sdk/ex"
 )
 
@@ -59,8 +60,9 @@ func OptUp(up UpMigration) MigrationOption {
 // OptUpFromSQL returns an option that sets the `up` function to execute a
 // SQL statement.
 func OptUpFromSQL(statement string) MigrationOption {
-	up := func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, statement)
+	up := func(ctx context.Context, pool *db.Connection, tx *sql.Tx) error {
+		i := pool.Invoke(db.OptContext(ctx), db.OptTx(tx))
+		_, err := i.Exec(statement)
 		return err
 	}
 
@@ -96,8 +98,9 @@ func OptUpConn(up UpMigrationConn) MigrationOption {
 // OptUpConnFromSQL returns an option that sets the non-transctional `up`
 // function to execute a SQL statement.
 func OptUpConnFromSQL(statement string) MigrationOption {
-	up := func(ctx context.Context, conn *sql.Conn) error {
-		_, err := conn.ExecContext(ctx, statement)
+	up := func(ctx context.Context, pool *db.Connection) error {
+		i := pool.Invoke(db.OptContext(ctx))
+		_, err := i.Exec(statement)
 		return err
 	}
 
