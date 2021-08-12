@@ -50,3 +50,16 @@ type Migration struct {
 	// not be specified by calling code.
 	serialID uint32
 }
+
+// NewMigration creates a new migration from a variadic slice of options.
+func NewMigration(opts ...MigrationOption) (*Migration, error) {
+	m := &Migration{}
+	for _, opt := range opts {
+		err := opt(m)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return m, nil
+}
