@@ -1,5 +1,13 @@
 package golembic
 
+import (
+	"context"
+	"database/sql"
+	"fmt"
+
+	"github.com/blend/go-sdk/db"
+)
+
 const (
 	// DefaultMetadataTable is the default name for the table used to store
 	// metadata about migrations.
@@ -31,4 +39,32 @@ func NewGenerateConfig(opts ...GenerateConfigOption) GenerateConfig {
 		opt(&gc)
 	}
 	return gc
+}
+
+// InsertMigration inserts a migration into the migrations metadata table.
+func (gc *GenerateConfig) InsertMigration(ctx context.Context, pool *db.Connection, tx *sql.Tx, migration Migration) error {
+	if migration.Previous == "" {
+		statement := fmt.Sprintf(
+			"INSERT INTO %s (serial_id, revision, previous) VALUES (0, %s, NULL)",
+			providerQuoteIdentifier(gc.MetadataTable),
+			providerQueryParameter(1),
+		)
+		_, err := pool.Invoke(db.OptContext(ctx), db.OptTx(tx)).Exec(statement, migration.Revision)
+		return err
+	}
+
+	statement := fmt.Sprintf(
+		"INSERT INTO %s (serial_id, revision, previous) VALUES (%s, %s, %s)",
+		providerQuoteIdentifier(gc.MetadataTable),
+		providerQueryParameter(1),
+		providerQueryParameter(2),
+		providerQueryParameter(3),
+	)
+	_, err := pool.Invoke(db.OptContext(ctx), db.OptTx(tx)).Exec(
+		statement,
+		migration.serialID, // Parameter 1
+		migration.Revision, // Parameter 2
+		migration.Previous, // Parameter 3
+	)
+	return err
 }
