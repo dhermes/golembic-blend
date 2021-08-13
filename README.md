@@ -61,6 +61,39 @@ $ go run ./examples/cmd/
 2021-08-13T04:43:19.257395Z    [db.migration.stats] 2 applied 1 skipped 0 failed 3 total
 ```
 
+### Error Mode: Stale Checkout
+
+During development or in `sandbox` environments, sometimes a team member
+will try to run migrations with an out-of-date branch. Conversely, a team
+member could run a migration that has not been checked into the mainline
+branch. In either of these cases, the migrations table will contain an
+**unknown** migration.
+
+We can artificially introduce a "new" migration to see what such a failure
+would look like:
+
+```
+$ go run ./examples/cmd/
+...
+2021-08-13T17:31:45.242616Z    [db.migration] -- applied -- 3196713ca7e6: Create movies table
+2021-08-13T17:31:45.245323Z    [db.migration.stats] 9 applied 0 skipped 0 failed 9 total
+$
+$ make psql
+...
+golembic=> INSERT INTO golembic_migrations (serial_id, revision, previous) VALUES (7, 'not-in-sequence', '3196713ca7e6');
+INSERT 0 1
+golembic=> \q
+$
+$ go run ./examples/cmd/
+2021-08-13T17:32:56.971927Z    [db.migration] -- skipped -- Check table does not exist: golembic_migrations
+2021-08-13T17:32:56.97558Z     [db.migration] -- plan -- Determine migrations that need to be applied
+2021-08-13T17:32:56.981763Z    [db.migration] -- failed -- Sequence has 7 migrations but 8 are stored in the table
+2021-08-13T17:32:56.981836Z    [db.migration] -- failed Finished planning migrations sequence -- Migration stored in SQL doesn't match sequence
+2021-08-13T17:32:56.983864Z    [db.migration.stats] 0 applied 1 skipped 1 failed 2 total
+Migration stored in SQL doesn't match sequence
+exit status 1
+```
+
 ### Error Mode: Milestone
 
 During typical development, new migrations will be added over time. Sometimes
