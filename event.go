@@ -52,6 +52,7 @@ func (pe PlanEvent) WriteText(tf logger.TextFormatter, wr io.Writer) {
 // Decompose implements logger.JSONWritable.
 func (pe PlanEvent) Decompose() map[string]interface{} {
 	return map[string]interface{}{
+		"result": "plan",
 		"labels": pe.Labels,
 		"body":   pe.Body,
 	}
