@@ -131,7 +131,7 @@ func (m *Manager) filterMigrations(ctx context.Context, pool *db.Connection, tx 
 		}
 
 		body := fmt.Sprintf(format, latest)
-		suiteWrite(ctx, m.Log, "plan", body)
+		PlanEventWrite(ctx, m.Log, body)
 		return pastMigrationCount, nil, nil
 	}
 
