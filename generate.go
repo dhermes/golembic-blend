@@ -8,6 +8,14 @@ import (
 	"github.com/blend/go-sdk/db/migration"
 )
 
+// NOTE: Ensure that
+//       * `planAction` satisfies `migration.Action`.
+//       * `applyAction` satisfies `migration.Action`.
+var (
+	_ migration.Action = (*planAction)(nil)
+	_ migration.Action = (*applyAction)(nil)
+)
+
 // GenerateSuite generates a suite of migrations from a sequence of golembic
 // migrations.
 func GenerateSuite(m *Manager) (*migration.Suite, error) {
@@ -18,7 +26,7 @@ func GenerateSuite(m *Manager) (*migration.Suite, error) {
 			migration.Statements(statements...),
 		),
 	}
-	pa := planAction{}
+	pa := planAction{m: m}
 	groups = append(groups, migration.NewGroupWithAction(
 		migration.Guard("Plan sequence", alwaysPredicate),
 		&pa,
@@ -32,19 +40,39 @@ func GenerateSuite(m *Manager) (*migration.Suite, error) {
 // **more** work to be done and then appends it to the groups in an existing
 // suite.
 type planAction struct {
+	m     *Manager
 	Suite *migration.Suite
 }
 
 // Action carries out the planning and updates `Suite.Groups` accordingly.
 func (pa *planAction) Action(ctx context.Context, pool *db.Connection, tx *sql.Tx) error {
-	if pa.Suite == nil || pa.Suite.Groups == nil {
+	if pa.Suite == nil {
 		return nil
 	}
 
-	// TODO: Actually do the planning here based on largest `serial_id`
-	pa.Suite.Groups = append(pa.Suite.Groups, migration.NewGroupWithAction(
-		migration.Guard("Sequence item 1", alwaysPredicate),
-		&planAction{},
-	))
+	migrations, err := pa.m.Plan(ctx, pool, tx)
+	if err != nil {
+		return err
+	}
+
+	//  m.ApplyMigration(ctx, migration)
+	for _, mi := range migrations {
+		d := mi.ExtendedDescription()
+		pa.Suite.Groups = append(pa.Suite.Groups, migration.NewGroupWithAction(
+			migration.Guard(d, alwaysPredicate),
+			&applyAction{m: pa.m, Migration: mi},
+		))
+	}
+
 	return nil
+}
+
+type applyAction struct {
+	m         *Manager
+	Migration Migration
+}
+
+// Action executes ApplyMigration for a given migration.
+func (aa *applyAction) Action(ctx context.Context, pool *db.Connection, tx *sql.Tx) error {
+	return aa.m.ApplyMigration(ctx, pool, tx, aa.Migration)
 }

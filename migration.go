@@ -74,6 +74,16 @@ func NewMigration(opts ...MigrationOption) (*Migration, error) {
 	return m, nil
 }
 
+// ExtendedDescription is an extended form of `m.Description` that also
+// incorporates other information like whether `m` is a milestone.
+func (m Migration) ExtendedDescription() string {
+	if m.Milestone {
+		return m.Description + milestoneSuffix
+	}
+
+	return m.Description
+}
+
 // Like is "almost" an equality check, it compares the `Previous` and `Revision`.
 func (m Migration) Like(other Migration) bool {
 	return m.Previous == other.Previous && m.Revision == other.Revision

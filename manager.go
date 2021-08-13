@@ -10,6 +10,14 @@ import (
 	"github.com/blend/go-sdk/ex"
 )
 
+// NOTE: Ensure that
+//       * `Migrations.Since` satisfies `migrationsFilter`.
+//       * `Migrations.Until` satisfies `migrationsFilter`.
+var (
+	_ migrationsFilter = (*Migrations)(nil).Since
+	_ migrationsFilter = (*Migrations)(nil).Until
+)
+
 const (
 	// DefaultMetadataTable is the default name for the table used to store
 	// metadata about migrations.
