@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"time"
 
 	"github.com/blend/go-sdk/db"
 )
@@ -88,5 +89,31 @@ func (m *Manager) ApplyMigration(ctx context.Context, pool *db.Connection, tx *s
 		return
 	}
 
+	return
+}
+
+// Latest determines the revision and timestamp of the most recently applied
+// migration.
+//
+// NOTE: This assumes, but does not check, that the migrations metadata table
+// exists.
+func (m *Manager) Latest(ctx context.Context, pool *db.Connection, tx *sql.Tx) (revision string, createdAt time.Time, err error) {
+	query := fmt.Sprintf(
+		"SELECT revision, previous, created_at FROM %s ORDER BY serial_id DESC LIMIT 1",
+		providerQuoteIdentifier(m.MetadataTable),
+	)
+	rows, err := readAllMigration(ctx, pool, tx, query)
+	if err != nil {
+		return
+	}
+
+	if len(rows) == 0 {
+		return
+	}
+
+	// NOTE: Here we trust that the query is sufficient to guarantee that
+	//       `len(rows) == 1`.
+	revision = rows[0].Revision
+	createdAt = rows[0].createdAt
 	return
 }
