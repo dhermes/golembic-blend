@@ -158,6 +158,14 @@ func (m *Manager) validateMilestones(pastMigrationCount int, migrations []Migrat
 	return nil
 }
 
+func (m *Manager) sinceOrAll(revision string) (int, []Migration, error) {
+	if revision == "" {
+		return 0, m.Sequence.All(), nil
+	}
+
+	return m.Sequence.Since(revision)
+}
+
 // Latest determines the revision and timestamp of the most recently applied
 // migration.
 //
