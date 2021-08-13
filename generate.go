@@ -3,6 +3,7 @@ package golembic
 import (
 	"context"
 	"database/sql"
+	"fmt"
 
 	"github.com/blend/go-sdk/db"
 	"github.com/blend/go-sdk/db/migration"
@@ -57,7 +58,7 @@ func (pa *planAction) Action(ctx context.Context, pool *db.Connection, tx *sql.T
 
 	//  m.ApplyMigration(ctx, migration)
 	for _, mi := range migrations {
-		d := mi.ExtendedDescription()
+		d := fmt.Sprintf("%s: %s", mi.Revision, mi.ExtendedDescription())
 		pa.Suite.Groups = append(pa.Suite.Groups, migration.NewGroupWithAction(
 			migration.Guard(d, alwaysPredicate),
 			&applyAction{m: pa.m, Migration: mi},
