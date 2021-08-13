@@ -21,6 +21,22 @@ func OptManagerSequence(migrations *Migrations) ManagerOption {
 	}
 }
 
+// OptManagerVerifyHistory sets `VerifyHistory` on a manager.
+func OptManagerVerifyHistory(verify bool) ManagerOption {
+	return func(m *Manager) error {
+		m.VerifyHistory = verify
+		return nil
+	}
+}
+
+// OptDevelopmentMode sets the development mode flag on a manager.
+func OptDevelopmentMode(mode bool) ManagerOption {
+	return func(m *Manager) error {
+		m.DevelopmentMode = mode
+		return nil
+	}
+}
+
 // OptManagerLog sets the logger interface on a manager. If `log` is `nil`code man
 // the option will return an error.
 func OptManagerLog(log logger.Log) ManagerOption {
@@ -30,14 +46,6 @@ func OptManagerLog(log logger.Log) ManagerOption {
 		}
 
 		m.Log = log
-		return nil
-	}
-}
-
-// OptDevelopmentMode sets the development mode flag on a manager.
-func OptDevelopmentMode(mode bool) ManagerOption {
-	return func(m *Manager) error {
-		m.DevelopmentMode = mode
 		return nil
 	}
 }

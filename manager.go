@@ -13,11 +13,9 @@ import (
 )
 
 // NOTE: Ensure that
-//       * `Migrations.Since` satisfies `migrationsFilter`.
-//       * `Migrations.Until` satisfies `migrationsFilter`.
+//       * `Manager.sinceOrAll` satisfies `migrationsFilter`.
 var (
-	_ migrationsFilter = (*Migrations)(nil).Since
-	_ migrationsFilter = (*Migrations)(nil).Until
+	_ migrationsFilter = (*Manager)(nil).sinceOrAll
 )
 
 const (
@@ -37,6 +35,9 @@ type Manager struct {
 	// Sequence is the collection of registered migrations to be applied,
 	// verified, described, etc. by this manager.
 	Sequence *Migrations
+	// VerifyHistory indicates that the rows **stored** in the migration metadata
+	// table should be verified during planning.
+	VerifyHistory bool
 	// DevelopmentMode is a flag indicating that this manager is currently
 	// being run in development mode, so things like extra validation should
 	// intentionally be disabled. This is intended for use in testing and
@@ -130,17 +131,14 @@ func (m *Manager) filterMigrations(ctx context.Context, pool *db.Connection, tx 
 		}
 
 		body := fmt.Sprintf(format, latest)
-		logger.MaybeTriggerContext(
-			ctx, m.Log,
-			dbmigration.NewEvent("plan   ", body, dbmigration.GetContextLabels(ctx)...),
-		)
+		suiteWrite(ctx, m.Log, "plan", body)
 		return pastMigrationCount, nil, nil
 	}
 
 	return pastMigrationCount, migrations, nil
 }
 
-func (m *Manager) validateMilestones(pastMigrationCount int, migrations []Migration) error {
+func (m *Manager) validateMilestones(ctx context.Context, pastMigrationCount int, migrations []Migration) error {
 	// Early exit if no migrations have been run yet. This **assumes** that the
 	// database is being brought up from scratch.
 	if pastMigrationCount == 0 {
@@ -155,10 +153,9 @@ func (m *Manager) validateMilestones(pastMigrationCount int, migrations []Migrat
 			continue
 		}
 
-		err := ex.New(
-			ErrCannotPassMilestone,
-			ex.OptMessagef("Revision %s (%d / %d migrations)", migration.Revision, i+1, count),
-		)
+		body := fmt.Sprintf("Revision %s (%d / %d migrations)", migration.Revision, i+1, count)
+		suiteWrite(ctx, m.Log, "failed", body)
+		err := ex.New(ErrCannotPassMilestone)
 
 		// In development mode, log the error message but don't return an error.
 		if m.DevelopmentMode {
@@ -189,7 +186,7 @@ func (m *Manager) Plan(ctx context.Context, pool *db.Connection, tx *sql.Tx, opt
 		return nil, nil
 	}
 
-	err = m.validateMilestones(pastMigrationCount, migrations)
+	err = m.validateMilestones(ctx, pastMigrationCount, migrations)
 	if err != nil {
 		return nil, err
 	}
@@ -250,7 +247,6 @@ func (m *Manager) latestMaybeVerify(ctx context.Context, pool *db.Connection, tx
 
 	revision = history[len(history)-1].Revision
 	createdAt = history[len(history)-1].createdAt
-	err = tx.Commit()
 	return
 }
 
@@ -270,23 +266,28 @@ func (m *Manager) verifyHistory(ctx context.Context, pool *db.Connection, tx *sq
 
 	registered = m.Sequence.All()
 	if len(history) > len(registered) {
-		err = ex.New(
-			ErrMigrationMismatch,
-			ex.OptMessagef("Sequence has %d migrations but %d are stored in the table", len(registered), len(history)),
-		)
+		body := fmt.Sprintf("Sequence has %d migrations but %d are stored in the table", len(registered), len(history))
+		suiteWrite(ctx, m.Log, "failed", body)
+		err = ex.New(ErrMigrationMismatch)
 		return
 	}
 
 	for i, row := range history {
 		expected := registered[i]
 		if !row.Like(expected) {
-			err = ex.New(
-				ErrMigrationMismatch,
-				ex.OptMessagef("Stored migration %d: %q does not match migration %q in sequence", i, row.Compact(), expected.Compact()),
-			)
+			body := fmt.Sprintf("Stored migration %d: %q does not match migration %q in sequence", i, row.Compact(), expected.Compact())
+			suiteWrite(ctx, m.Log, "failed", body)
+			err = ex.New(ErrMigrationMismatch)
 			return
 		}
 	}
 
 	return
+}
+
+func suiteWrite(ctx context.Context, log logger.Log, result, body string) {
+	logger.MaybeTriggerContext(
+		ctx, log,
+		dbmigration.NewEvent(result, body, dbmigration.GetContextLabels(ctx)...),
+	)
 }

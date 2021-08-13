@@ -22,6 +22,7 @@ func run() error {
 	m, err := golembic.NewManager(
 		golembic.OptManagerSequence(migrations),
 		golembic.OptManagerLog(log),
+		golembic.OptManagerVerifyHistory(true),
 	)
 	if err != nil {
 		return err

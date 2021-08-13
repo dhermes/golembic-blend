@@ -55,9 +55,9 @@ func (pa *planAction) Action(ctx context.Context, pool *db.Connection, tx *sql.T
 		return nil
 	}
 
-	pa.Suite.Write(ctx, "plan   ", "Determine migrations that need to be applied")
+	pa.Suite.Write(ctx, "plan", "Determine migrations that need to be applied")
 
-	migrations, err := pa.m.Plan(ctx, pool, tx)
+	migrations, err := pa.m.Plan(ctx, pool, tx, OptApplyVerifyHistory(pa.m.VerifyHistory))
 	if err != nil {
 		return err
 	}
