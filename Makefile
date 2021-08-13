@@ -107,7 +107,7 @@ psql-superuser: require-postgres
 
 .PHONY: psql-reset
 psql-reset: require-postgres
-	psql "$(POSTGRES_ADMIN_DSN)" --command 'TRUNCATE golembic_migrations'
+	psql "$(POSTGRES_ADMIN_DSN)" --command 'DROP TABLE IF EXISTS golembic_migrations'
 	psql "$(POSTGRES_ADMIN_DSN)" --command 'DROP TABLE IF EXISTS books'
 	psql "$(POSTGRES_ADMIN_DSN)" --command 'DROP TABLE IF EXISTS movies'
 	psql "$(POSTGRES_ADMIN_DSN)" --command 'DROP TABLE IF EXISTS users;'
