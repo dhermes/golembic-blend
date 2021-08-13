@@ -29,11 +29,14 @@ func GenerateSuite(m *Manager) (*migration.Suite, error) {
 	}
 	pa := planAction{m: m}
 	groups = append(groups, migration.NewGroupWithAction(
-		migration.Guard("Plan sequence", alwaysPredicate),
+		migration.Guard("Finished planning sequence", alwaysPredicate),
 		&pa,
 	))
-	// TODO: Add group for every registered migration.
-	pa.Suite = migration.New(migration.OptGroups(groups...))
+
+	pa.Suite = migration.New(
+		migration.OptGroups(groups...),
+		migration.OptLog(m.Log),
+	)
 	return pa.Suite, nil
 }
 

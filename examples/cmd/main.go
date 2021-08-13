@@ -18,7 +18,11 @@ func run() error {
 		return err
 	}
 
-	m, err := golembic.NewManager(golembic.OptManagerSequence(migrations))
+	log := logger.All()
+	m, err := golembic.NewManager(
+		golembic.OptManagerSequence(migrations),
+		golembic.OptManagerLog(log),
+	)
 	if err != nil {
 		return err
 	}
@@ -28,7 +32,7 @@ func run() error {
 		return err
 	}
 
-	suite.Log = logger.All()
+	suite.Log = log
 
 	ctx := context.Background()
 	pool, err := getPool(ctx)

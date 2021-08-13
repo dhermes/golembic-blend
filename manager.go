@@ -7,7 +7,9 @@ import (
 	"time"
 
 	"github.com/blend/go-sdk/db"
+	dbmigration "github.com/blend/go-sdk/db/migration"
 	"github.com/blend/go-sdk/ex"
+	"github.com/blend/go-sdk/logger"
 )
 
 // NOTE: Ensure that
@@ -42,6 +44,8 @@ type Manager struct {
 	// and migrations will be applied from scratch (including milestones that
 	// may not come at the end).
 	DevelopmentMode bool
+	// Log is used for printing output
+	Log logger.Log
 }
 
 // NewManager creates a new manager for orchestrating migrations.
@@ -125,7 +129,11 @@ func (m *Manager) filterMigrations(ctx context.Context, pool *db.Connection, tx 
 			format += milestoneSuffix
 		}
 
-		// TODO: m.Log.Printf(format, latest)
+		body := fmt.Sprintf(format, latest)
+		logger.MaybeTriggerContext(
+			ctx, m.Log,
+			dbmigration.NewEvent("plan   ", body, dbmigration.GetContextLabels(ctx)...),
+		)
 		return pastMigrationCount, nil, nil
 	}
 
