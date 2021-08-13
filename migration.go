@@ -3,6 +3,7 @@ package golembic
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"time"
 
 	"github.com/blend/go-sdk/db"
@@ -71,6 +72,20 @@ func NewMigration(opts ...MigrationOption) (*Migration, error) {
 	}
 
 	return m, nil
+}
+
+// Like is "almost" an equality check, it compares the `Previous` and `Revision`.
+func (m Migration) Like(other Migration) bool {
+	return m.Previous == other.Previous && m.Revision == other.Revision
+}
+
+// Compact gives a "limited" representation of the migration
+func (m Migration) Compact() string {
+	if m.Previous == "" {
+		return fmt.Sprintf("%s:NULL", m.Revision)
+	}
+
+	return fmt.Sprintf("%s:%s", m.Revision, m.Previous)
 }
 
 // InvokeUp dispatches to `Up` or `UpConn`, depending on which is set. If both
