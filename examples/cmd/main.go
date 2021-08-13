@@ -13,7 +13,7 @@ import (
 	"github.com/dhermes/golembic-blend/examples"
 )
 
-func run(length int) error {
+func run(length int, verifyHistory bool) error {
 	migrations, err := examples.AllMigrations(length)
 	if err != nil {
 		return err
@@ -23,7 +23,7 @@ func run(length int) error {
 	m, err := golembic.NewManager(
 		golembic.OptManagerSequence(migrations),
 		golembic.OptManagerLog(log),
-		golembic.OptManagerVerifyHistory(true),
+		golembic.OptManagerVerifyHistory(verifyHistory),
 	)
 	if err != nil {
 		return err
@@ -47,13 +47,14 @@ func run(length int) error {
 
 func root() *cobra.Command {
 	length := -1
+	verifyHistory := false
 	cmd := &cobra.Command{
 		Use:           "golembic-blend-example",
 		Short:         "Run example database migrations via golembic-blend",
 		SilenceErrors: true,
 		SilenceUsage:  true,
 		RunE: func(_ *cobra.Command, _ []string) error {
-			return run(length)
+			return run(length, verifyHistory)
 		},
 	}
 
@@ -62,6 +63,12 @@ func root() *cobra.Command {
 		"length",
 		-1,
 		"The length of the sequence to be run. Must be one of -1, 1, ..., 7.",
+	)
+	cmd.PersistentFlags().BoolVar(
+		&verifyHistory,
+		"verify-history",
+		false,
+		"If set, verify that all of the migration history matches the registered migrations",
 	)
 
 	return cmd
