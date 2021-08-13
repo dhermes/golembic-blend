@@ -162,8 +162,8 @@ func (m *Manager) validateMilestones(pastMigrationCount int, migrations []Migrat
 
 		// In development mode, log the error message but don't return an error.
 		if m.DevelopmentMode {
-			// TODO: m.Log.Printf("Ignoring error in development mode")
-			// TODO: m.Log.Printf("  %s", err)
+			logger.MaybeDebugf(m.Log, "Ignoring error in development mode")
+			logger.MaybeDebugf(m.Log, "  %s", err)
 			continue
 		}
 
