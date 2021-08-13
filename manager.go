@@ -125,6 +125,39 @@ func (m *Manager) filterMigrations(ctx context.Context, pool *db.Connection, tx 
 	return pastMigrationCount, migrations, nil
 }
 
+func (m *Manager) validateMilestones(pastMigrationCount int, migrations []Migration) error {
+	// Early exit if no migrations have been run yet. This **assumes** that the
+	// database is being brought up from scratch.
+	if pastMigrationCount == 0 {
+		return nil
+	}
+
+	count := len(migrations)
+	// Ensure all (but the last) are not a milestone.
+	for i := 0; i < count-1; i++ {
+		migration := migrations[i]
+		if !migration.Milestone {
+			continue
+		}
+
+		err := ex.New(
+			ErrCannotPassMilestone,
+			ex.OptMessagef("Revision %s (%d / %d migrations)", migration.Revision, i+1, count),
+		)
+
+		// In development mode, log the error message but don't return an error.
+		if m.DevelopmentMode {
+			// TODO: m.Log.Printf("Ignoring error in development mode")
+			// TODO: m.Log.Printf("  %s", err)
+			continue
+		}
+
+		return err
+	}
+
+	return nil
+}
+
 // Latest determines the revision and timestamp of the most recently applied
 // migration.
 //
