@@ -74,3 +74,19 @@ func (m *Manager) InsertMigration(ctx context.Context, pool *db.Connection, tx *
 	)
 	return err
 }
+
+// ApplyMigration creates a transaction that runs the "Up" migration.
+func (m *Manager) ApplyMigration(ctx context.Context, pool *db.Connection, tx *sql.Tx, migration Migration) (err error) {
+	// TODO: m.Log.Printf("Applying %s: %s", migration.Revision, migration.ExtendedDescription())
+	err = migration.InvokeUp(ctx, pool, tx)
+	if err != nil {
+		return
+	}
+
+	err = m.InsertMigration(ctx, pool, tx, migration)
+	if err != nil {
+		return
+	}
+
+	return
+}

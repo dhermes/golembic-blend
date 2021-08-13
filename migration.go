@@ -1,7 +1,12 @@
 package golembic
 
 import (
+	"context"
+	"database/sql"
 	"time"
+
+	"github.com/blend/go-sdk/db"
+	"github.com/blend/go-sdk/ex"
 )
 
 const (
@@ -66,4 +71,28 @@ func NewMigration(opts ...MigrationOption) (*Migration, error) {
 	}
 
 	return m, nil
+}
+
+// InvokeUp dispatches to `Up` or `UpConn`, depending on which is set. If both
+// or neither is set, that is considered an error. If `UpConn` needs to be invoked,
+// this lazily creates a new connection from a pool. It's crucial that the pool
+// sets the relevant timeouts when creating a new connection to make sure
+// migrations don't cause disruptions in application performance due to
+// accidentally holding locks for an extended period.
+func (m Migration) InvokeUp(ctx context.Context, pool *db.Connection, tx *sql.Tx) error {
+	// Handle the `UpConn` case first.
+	if m.UpConn != nil {
+		if m.Up != nil {
+			return ex.New(ErrCannotInvokeUp, ex.OptMessage("Both Up and UpConn are set"))
+		}
+
+		return m.UpConn(ctx, pool)
+	}
+
+	// If neither `UpConn` nor `Up` is set, we can't invoke anything.
+	if m.Up == nil {
+		return ex.New(ErrCannotInvokeUp, ex.OptMessage("Neither Up nor UpConn are set"))
+	}
+
+	return m.Up(ctx, pool, tx)
 }
