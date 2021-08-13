@@ -29,7 +29,7 @@ func GenerateSuite(m *Manager) (*migration.Suite, error) {
 	}
 	pa := planAction{m: m}
 	groups = append(groups, migration.NewGroupWithAction(
-		migration.Guard("Finished planning sequence", alwaysPredicate),
+		migration.Guard("Finished planning migrations sequence", alwaysPredicate),
 		&pa,
 	))
 
@@ -53,6 +53,8 @@ func (pa *planAction) Action(ctx context.Context, pool *db.Connection, tx *sql.T
 	if pa.Suite == nil {
 		return nil
 	}
+
+	pa.Suite.Write(ctx, "plan   ", "Determine migrations that need to be applied")
 
 	migrations, err := pa.m.Plan(ctx, pool, tx)
 	if err != nil {
