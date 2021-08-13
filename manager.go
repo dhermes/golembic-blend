@@ -93,6 +93,38 @@ func (m *Manager) ApplyMigration(ctx context.Context, pool *db.Connection, tx *s
 	return
 }
 
+// filterMigrations applies a filter function that takes the revision of the
+// last applied migration to determine a set of migrations to run.
+//
+// NOTE: This assumes, but does not check, that the migrations metadata table
+// exists.
+func (m *Manager) filterMigrations(ctx context.Context, pool *db.Connection, tx *sql.Tx, filter migrationsFilter, verifyHistory bool) (int, []Migration, error) {
+	latest, _, err := m.latestMaybeVerify(ctx, pool, tx, verifyHistory)
+	if err != nil {
+		return 0, nil, err
+	}
+
+	pastMigrationCount, migrations, err := filter(latest)
+	if err != nil {
+		return 0, nil, err
+	}
+
+	if len(migrations) == 0 {
+		format := "No migrations to run; latest revision: %s"
+
+		// Add `milestoneSuffix`, if we can detect `latest` is a milestone.
+		migration := m.Sequence.Get(latest)
+		if migration != nil && migration.Milestone {
+			format += milestoneSuffix
+		}
+
+		// TODO: m.Log.Printf(format, latest)
+		return pastMigrationCount, nil, nil
+	}
+
+	return pastMigrationCount, migrations, nil
+}
+
 // Latest determines the revision and timestamp of the most recently applied
 // migration.
 //
