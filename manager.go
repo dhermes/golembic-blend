@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/blend/go-sdk/db"
+	"github.com/blend/go-sdk/ex"
 )
 
 const (
@@ -115,5 +116,42 @@ func (m *Manager) Latest(ctx context.Context, pool *db.Connection, tx *sql.Tx) (
 	//       `len(rows) == 1`.
 	revision = rows[0].Revision
 	createdAt = rows[0].createdAt
+	return
+}
+
+// verifyHistory retrieves a full history of migrations and compares it against
+// the sequence of registered migrations. If they match (up to the end of the
+// history, the registered sequence can be longer), this will return with no
+// error and include slices of the history and the registered migrations.
+func (m *Manager) verifyHistory(ctx context.Context, pool *db.Connection, tx *sql.Tx) (history, registered []Migration, err error) {
+	query := fmt.Sprintf(
+		"SELECT revision, previous, created_at FROM %s ORDER BY serial_id ASC",
+		providerQuoteIdentifier(m.MetadataTable),
+	)
+	history, err = readAllMigration(ctx, pool, tx, query)
+	if err != nil {
+		return
+	}
+
+	registered = m.Sequence.All()
+	if len(history) > len(registered) {
+		err = ex.New(
+			ErrMigrationMismatch,
+			ex.OptMessagef("Sequence has %d migrations but %d are stored in the table", len(registered), len(history)),
+		)
+		return
+	}
+
+	for i, row := range history {
+		expected := registered[i]
+		if !row.Like(expected) {
+			err = ex.New(
+				ErrMigrationMismatch,
+				ex.OptMessagef("Stored migration %d: %q does not match migration %q in sequence", i, row.Compact(), expected.Compact()),
+			)
+			return
+		}
+	}
+
 	return
 }

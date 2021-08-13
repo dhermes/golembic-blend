@@ -26,6 +26,9 @@ var (
 	// ErrMigrationNotRegistered is the error returned when no migration has been
 	// registered for a given revision.
 	ErrMigrationNotRegistered = ex.Class("No migration registered for revision")
+	// ErrMigrationMismatch is the error returned when the migration stored in
+	// SQL does not match the registered migration.
+	ErrMigrationMismatch = ex.Class("Migration stored in SQL doesn't match sequence")
 	// ErrCannotInvokeUp is the error returned when a migration cannot invoke the
 	// up function (e.g. if it is `nil`).
 	ErrCannotInvokeUp = ex.Class("Cannot invoke up function for a migration")
