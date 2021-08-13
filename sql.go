@@ -3,6 +3,7 @@ package golembic
 import (
 	"context"
 	"database/sql"
+	"time"
 
 	"github.com/blend/go-sdk/db"
 )
@@ -30,11 +31,33 @@ func readAllMigration(ctx context.Context, pool *db.Connection, tx *sql.Tx, quer
 	invocation := pool.Invoke(db.OptContext(ctx), db.OptTx(tx))
 	q := invocation.Query(query, args...)
 
-	var migrations []Migration
-	err := q.OutMany(&migrations)
+	var mms []migrationModel
+	err := q.OutMany(&mms)
 	if err != nil {
 		return nil, err
 	}
 
+	migrations := make([]Migration, len(mms))
+	for i, mm := range mms {
+		migrations[i] = mm.ToMigration()
+	}
 	return migrations, nil
+}
+
+// migrationModel is a shallow version of `Migration` meant for use with
+// database queries.
+type migrationModel struct {
+	Previous  string    `db:"previous"`
+	Revision  string    `db:"revision"`
+	CreatedAt time.Time `db:"created_at"`
+	SerialID  uint32    `db:"serial_id"`
+}
+
+func (mm migrationModel) ToMigration() Migration {
+	return Migration{
+		Previous:  mm.Previous,
+		Revision:  mm.Revision,
+		createdAt: mm.CreatedAt,
+		serialID:  mm.SerialID,
+	}
 }
