@@ -113,3 +113,180 @@ func (m *Migrations) RegisterManyOpt(manyOpts ...[]MigrationOption) error {
 
 	return nil
 }
+
+// Root does a linear scan of every migration in the sequence and returns
+// the root migration. In the "general" case such a scan would be expensive, but
+// the number of migrations should always be a small number.
+//
+// NOTE: This does not verify or enforce the invariant that there must be
+// exactly one migration without a previous migration. This invariant is enforced
+// by the exported methods such as `Register()` and `RegisterMany()` and the
+// constructor `NewSequence()`.
+func (m *Migrations) Root() Migration {
+	m.lock.Lock()
+	defer m.lock.Unlock()
+
+	for _, migration := range m.sequence {
+		if migration.Previous == "" {
+			return migration
+		}
+	}
+
+	return Migration{}
+}
+
+// All produces the migrations in the sequence, in order.
+//
+// NOTE: This does not verify or enforce the invariant that there must be
+//       exactly one migration without a previous migration. This invariant is
+//       enforced by the exported methods such as `Register()` and
+//       `RegisterMany()` and the constructor `NewSequence()`.
+func (m *Migrations) All() []Migration {
+	root := m.Root()
+
+	m.lock.Lock()
+	defer m.lock.Unlock()
+	result := []Migration{root}
+	// Find the unique revision (without validation) that points at the
+	// current `previous`.
+	previous := root.Revision
+	for i := 0; i < len(m.sequence)-1; i++ {
+		for _, migration := range m.sequence {
+			if migration.Previous != previous {
+				continue
+			}
+
+			result = append(result, migration)
+			previous = migration.Revision
+			break
+		}
+	}
+
+	return result
+}
+
+// Since returns the migrations that occur **after** `revision`.
+//
+// This utilizes `All()` and returns all migrations after the one that
+// matches `revision`. If none match, an error will be returned. If
+// `revision` is the **last** migration, the migrations returned will be an
+// empty slice.
+func (m *Migrations) Since(revision string) (int, []Migration, error) {
+	all := m.All()
+	found := false
+
+	result := []Migration{}
+	pastMigrationCount := 0
+	for _, migration := range all {
+		if found {
+			result = append(result, migration)
+			continue
+		}
+
+		pastMigrationCount++
+		if migration.Revision == revision {
+			found = true
+		}
+	}
+
+	if !found {
+		err := ex.New(ErrMigrationNotRegistered, ex.OptMessagef("Revision: %q", revision))
+		return 0, nil, err
+	}
+
+	return pastMigrationCount, result, nil
+}
+
+// Until returns the migrations that occur **before** `revision`.
+//
+// This utilizes `All()` and returns all migrations up to and including the one
+// that matches `revision`. If none match, an error will be returned.
+func (m *Migrations) Until(revision string) (int, []Migration, error) {
+	all := m.All()
+	found := false
+
+	result := []Migration{}
+	for _, migration := range all {
+		result = append(result, migration)
+		if migration.Revision == revision {
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		err := ex.New(ErrMigrationNotRegistered, ex.OptMessagef("Revision: %q", revision))
+		return 0, nil, err
+	}
+
+	// I.e. we are not filtering any migrations from the beginning of the
+	// sequence.
+	pastMigrationCount := 0
+	return pastMigrationCount, result, nil
+}
+
+// Between returns the migrations that occur between two revisions.
+//
+// This can be seen as a combination of `Since()` and `Until()`.
+func (m *Migrations) Between(since, until string) (int, []Migration, error) {
+	all := m.All()
+	foundSince := false
+	foundUntil := false
+
+	result := []Migration{}
+	pastMigrationCount := 0
+	for _, migration := range all {
+		if foundSince {
+			if foundUntil {
+				break
+			}
+			result = append(result, migration)
+		}
+
+		pastMigrationCount++
+		if migration.Revision == since {
+			foundSince = true
+		}
+
+		if migration.Revision == until {
+			foundUntil = true
+		}
+	}
+
+	if !foundSince {
+		err := ex.New(ErrMigrationNotRegistered, ex.OptMessagef("Revision: %q", since))
+		return 0, nil, err
+	}
+
+	if !foundUntil {
+		err := ex.New(ErrMigrationNotRegistered, ex.OptMessagef("Revision: %q", until))
+		return 0, nil, err
+	}
+
+	return pastMigrationCount, result, nil
+}
+
+// Revisions produces the revisions in the sequence, in order.
+//
+// This utilizes `All()` and just extracts the revisions.
+func (m *Migrations) Revisions() []string {
+	result := []string{}
+	for _, migration := range m.All() {
+		result = append(result, migration.Revision)
+	}
+	return result
+}
+
+// Get retrieves a revision from the sequence, if present. If not, returns
+// `nil`.
+func (m *Migrations) Get(revision string) *Migration {
+	m.lock.Lock()
+	defer m.lock.Unlock()
+
+	migration, ok := m.sequence[revision]
+	if ok {
+		return &migration
+	}
+
+	return nil
+}
