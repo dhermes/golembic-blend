@@ -119,6 +119,29 @@ func (m *Manager) Latest(ctx context.Context, pool *db.Connection, tx *sql.Tx) (
 	return
 }
 
+// latestMaybeVerify determines the latest applied migration and verifies all of the
+// migration history if `verifyHistory` is true.
+func (m *Manager) latestMaybeVerify(ctx context.Context, pool *db.Connection, tx *sql.Tx, verifyHistory bool) (revision string, createdAt time.Time, err error) {
+	if !verifyHistory {
+		revision, createdAt, err = m.Latest(ctx, pool, tx)
+		return
+	}
+
+	history, _, err := m.verifyHistory(ctx, pool, tx)
+	if err != nil {
+		return
+	}
+
+	if len(history) == 0 {
+		return
+	}
+
+	revision = history[len(history)-1].Revision
+	createdAt = history[len(history)-1].createdAt
+	err = tx.Commit()
+	return
+}
+
 // verifyHistory retrieves a full history of migrations and compares it against
 // the sequence of registered migrations. If they match (up to the end of the
 // history, the registered sequence can be longer), this will return with no
