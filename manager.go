@@ -158,6 +158,37 @@ func (m *Manager) validateMilestones(pastMigrationCount int, migrations []Migrat
 	return nil
 }
 
+// Up applies all migrations that have not yet been applied.
+func (m *Manager) Up(ctx context.Context, pool *db.Connection, tx *sql.Tx, opts ...ApplyOption) error {
+	ac, err := NewApplyConfig(opts...)
+	if err != nil {
+		return err
+	}
+
+	pastMigrationCount, migrations, err := m.filterMigrations(ctx, pool, tx, m.sinceOrAll, ac.VerifyHistory)
+	if err != nil {
+		return err
+	}
+
+	if migrations == nil {
+		return nil
+	}
+
+	err = m.validateMilestones(pastMigrationCount, migrations)
+	if err != nil {
+		return err
+	}
+
+	for _, migration := range migrations {
+		err = m.ApplyMigration(ctx, pool, tx, migration)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (m *Manager) sinceOrAll(revision string) (int, []Migration, error) {
 	if revision == "" {
 		return 0, m.Sequence.All(), nil
