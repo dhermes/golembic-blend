@@ -94,6 +94,28 @@ Migration stored in SQL doesn't match sequence
 exit status 1
 ```
 
+Similarly, if we can modify an existing entry in the sequence so it
+becomes unknown (vs. appending to the sequence):
+
+```
+$ make psql
+...
+golembic=> DELETE FROM golembic_migrations WHERE revision IN ('not-in-sequence', '3196713ca7e6');
+DELETE 2
+golembic=> INSERT INTO golembic_migrations (serial_id, revision, previous) VALUES (6, 'not-in-sequence', '2a35ccd628bc');
+INSERT 0 1
+golembic=> \q
+$
+$ go run ./examples/cmd/
+2021-08-13T17:36:03.882708Z    [db.migration] -- skipped -- Check table does not exist: golembic_migrations
+2021-08-13T17:36:03.88613Z     [db.migration] -- plan -- Determine migrations that need to be applied
+2021-08-13T17:36:03.891901Z    [db.migration] -- failed -- Stored migration 6: "not-in-sequence:2a35ccd628bc" does not match migration "3196713ca7e6:2a35ccd628bc" in sequence
+2021-08-13T17:36:03.891956Z    [db.migration] -- failed Finished planning migrations sequence -- Migration stored in SQL doesn't match sequence
+2021-08-13T17:36:03.894032Z    [db.migration.stats] 0 applied 1 skipped 1 failed 2 total
+Migration stored in SQL doesn't match sequence
+exit status 1
+```
+
 ### Error Mode: Milestone
 
 During typical development, new migrations will be added over time. Sometimes
