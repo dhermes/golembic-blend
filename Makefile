@@ -13,6 +13,7 @@ help:
 	@echo '   make require-postgres        Determine if PostgreSQL database is running; fail if not'
 	@echo '   make psql                    Connects to currently running PostgreSQL DB via `psql`'
 	@echo '   make psql-superuser          Connects to currently running PostgreSQL DB via `psql` as superuser'
+	@echo '   make psql-reset              Connects to currently running PostgreSQL DB via `psql` and resets all example tables'
 	@echo ''
 
 ################################################################################
@@ -39,7 +40,7 @@ DB_ADMIN_USER ?= golembic_admin
 DB_ADMIN_PASSWORD ?= testpassword_admin
 
 # NOTE: This assumes the `DB_*_PASSWORD` values do not need to be URL encoded.
-POSTGRES_SUPERUSER_DSN ?= postgres://$(DB_SUPERUSER_USER):$(DB_SUPERUSER_PASSWORD)@$(DB_HOST):$(DB_PORT)/$(DB_NAME)
+POSTGRES_SUPERUSER_DSN ?= postgres://$(DB_SUPERUSER_USER):$(DB_SUPERUSER_PASSWORD)@$(DB_HOST):$(POSTGRES_PORT)/$(DB_NAME)
 POSTGRES_ADMIN_DSN ?= postgres://$(DB_ADMIN_USER):$(DB_ADMIN_PASSWORD)@$(DB_HOST):$(POSTGRES_PORT)/$(DB_NAME)
 
 ################################################################################
@@ -103,3 +104,10 @@ psql: require-postgres
 psql-superuser: require-postgres
 	@echo "Running psql against port $(POSTGRES_PORT)"
 	psql "$(POSTGRES_SUPERUSER_DSN)"
+
+.PHONY: psql-reset
+psql-reset: require-postgres
+	psql "$(POSTGRES_ADMIN_DSN)" --command 'TRUNCATE golembic_migrations'
+	psql "$(POSTGRES_ADMIN_DSN)" --command 'DROP TABLE IF EXISTS books'
+	psql "$(POSTGRES_ADMIN_DSN)" --command 'DROP TABLE IF EXISTS movies'
+	psql "$(POSTGRES_ADMIN_DSN)" --command 'DROP TABLE IF EXISTS users;'
