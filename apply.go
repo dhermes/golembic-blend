@@ -4,7 +4,6 @@ package golembic
 // migrations.
 type ApplyConfig struct {
 	VerifyHistory bool
-	Revision      string
 }
 
 // NewApplyConfig creates a new `ApplyConfig` and applies options.
@@ -24,14 +23,6 @@ func NewApplyConfig(opts ...ApplyOption) (*ApplyConfig, error) {
 func OptApplyVerifyHistory(verify bool) ApplyOption {
 	return func(ac *ApplyConfig) error {
 		ac.VerifyHistory = verify
-		return nil
-	}
-}
-
-// OptApplyRevision sets `Revision` on an `ApplyConfig`.
-func OptApplyRevision(revision string) ApplyOption {
-	return func(ac *ApplyConfig) error {
-		ac.Revision = revision
 		return nil
 	}
 }
