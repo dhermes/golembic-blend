@@ -29,9 +29,8 @@ func GenerateSuite(m *Manager) (*migration.Suite, error) {
 		),
 	}
 	pa := planAction{m: m}
-	groups = append(groups, migration.NewGroupWithAction(
-		migration.Guard("Finished planning migrations sequence", alwaysPredicate),
-		&pa,
+	groups = append(groups, migration.NewGroup(
+		migration.OptGroupActions(&pa),
 	))
 
 	pa.Suite = migration.New(
@@ -64,10 +63,8 @@ func (pa *planAction) Action(ctx context.Context, pool *db.Connection, tx *sql.T
 
 	//  m.ApplyMigration(ctx, migration)
 	for _, mi := range migrations {
-		d := fmt.Sprintf("%s: %s", mi.Revision, mi.ExtendedDescription())
-		pa.Suite.Groups = append(pa.Suite.Groups, migration.NewGroupWithAction(
-			migration.Guard(d, alwaysPredicate),
-			&applyAction{m: pa.m, Migration: mi},
+		pa.Suite.Groups = append(pa.Suite.Groups, migration.NewGroup(
+			migration.OptGroupActions(&applyAction{m: pa.m, Migration: mi}),
 		))
 	}
 
@@ -81,7 +78,24 @@ type applyAction struct {
 
 // Action executes ApplyMigration for a given migration.
 func (aa *applyAction) Action(ctx context.Context, pool *db.Connection, tx *sql.Tx) error {
-	return aa.m.ApplyMigration(ctx, pool, tx, aa.Migration)
+	err := aa.m.ApplyMigration(ctx, pool, tx, aa.Migration)
+	suite := migration.GetContextSuite(ctx)
+
+	if err != nil {
+		if suite != nil {
+			d := fmt.Sprintf("%s: %s", aa.Migration.Revision, aa.Migration.ExtendedDescription())
+			return suite.Error(migration.WithLabel(ctx, d), err)
+		}
+		return err
+	}
+
+	if suite != nil {
+		suite.Applied++
+		suite.Total++
+		suite.Write(ctx, aa.Migration.Revision, aa.Migration.ExtendedDescription())
+	}
+
+	return nil
 }
 
 // ApplyDynamic applies a migrations suite. Rather than using a `range`
@@ -102,9 +116,4 @@ func ApplyDynamic(ctx context.Context, s *migration.Suite, c *db.Connection) (er
 		}
 	}
 	return
-}
-
-// alwaysPredicate can be used to always run an action.
-func alwaysPredicate(_ context.Context, _ *db.Connection, _ *sql.Tx) (bool, error) {
-	return true, nil
 }
