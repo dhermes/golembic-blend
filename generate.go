@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 
-	"github.com/blend/go-sdk/ansi"
 	"github.com/blend/go-sdk/db"
 	"github.com/blend/go-sdk/db/migration"
 	"github.com/blend/go-sdk/ex"
@@ -54,7 +53,7 @@ func (pa *planAction) Action(ctx context.Context, pool *db.Connection, tx *sql.T
 		return nil
 	}
 
-	PlanEventWrite(ctx, pa.Suite.Log, "plan", "Determine migrations that need to be applied", ansi.ColorGreen)
+	PlanEventWrite(ctx, pa.Suite.Log, "", "Determine migrations that need to be applied", "")
 
 	migrations, err := pa.m.Plan(ctx, pool, tx, OptApplyVerifyHistory(pa.m.VerifyHistory))
 	if err != nil {
@@ -85,7 +84,7 @@ func (aa *applyAction) Action(ctx context.Context, pool *db.Connection, tx *sql.
 		if suite != nil {
 			suite.Failed++
 			suite.Total++
-			PlanEventWrite(ctx, aa.m.Log, aa.Migration.Revision, aa.Migration.ExtendedDescription(), ansi.ColorRed)
+			PlanEventWrite(ctx, aa.m.Log, aa.Migration.Revision, aa.Migration.ExtendedDescription(), PlanStatusFailed)
 			return err
 		}
 		return err
@@ -94,7 +93,7 @@ func (aa *applyAction) Action(ctx context.Context, pool *db.Connection, tx *sql.
 	if suite != nil {
 		suite.Applied++
 		suite.Total++
-		PlanEventWrite(ctx, aa.m.Log, aa.Migration.Revision, aa.Migration.ExtendedDescription(), ansi.ColorBlue)
+		PlanEventWrite(ctx, aa.m.Log, aa.Migration.Revision, aa.Migration.ExtendedDescription(), PlanStatusApplied)
 	}
 
 	return nil

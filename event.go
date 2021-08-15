@@ -21,22 +21,47 @@ var (
 	_ logger.JSONWritable = (*PlanEvent)(nil)
 )
 
+type PlanStatus string
+
+const (
+	PlanStatusUnset   PlanStatus = ""
+	PlanStatusFailed  PlanStatus = migration.StatFailed
+	PlanStatusApplied PlanStatus = migration.StatApplied
+)
+
 type PlanEvent struct {
-	Result string
-	Body   string
-	Color  ansi.Color
-	Labels []string
+	Revision string
+	Body     string
+	Status   PlanStatus
+	Labels   []string
 }
 
 func (PlanEvent) GetFlag() string {
 	return migration.Flag
 }
 
+func (pe PlanEvent) Result() string {
+	if pe.Revision == "" {
+		return "plan"
+	}
+	return pe.Revision
+}
+
+func (pe PlanEvent) Color() ansi.Color {
+	if pe.Status == PlanStatusApplied {
+		return ansi.ColorBlue
+	}
+	if pe.Status == PlanStatusFailed {
+		return ansi.ColorRed
+	}
+	return ansi.ColorGreen
+}
+
 // WriteText writes the migration event as text.
 func (pe PlanEvent) WriteText(tf logger.TextFormatter, wr io.Writer) {
 	fmt.Fprint(wr, tf.Colorize("--", ansi.ColorLightBlack))
 	fmt.Fprint(wr, logger.Space)
-	fmt.Fprint(wr, tf.Colorize(pe.Result, pe.Color))
+	fmt.Fprint(wr, tf.Colorize(pe.Result(), pe.Color()))
 
 	if len(pe.Labels) > 0 {
 		fmt.Fprint(wr, logger.Space)
@@ -53,14 +78,22 @@ func (pe PlanEvent) WriteText(tf logger.TextFormatter, wr io.Writer) {
 
 // Decompose implements logger.JSONWritable.
 func (pe PlanEvent) Decompose() map[string]interface{} {
-	return map[string]interface{}{
-		"result": pe.Result,
+	m := map[string]interface{}{
 		"labels": pe.Labels,
 		"body":   pe.Body,
 	}
+	if pe.Revision == "" {
+		m["result"] = "plan"
+	} else {
+		m["revision"] = pe.Revision
+	}
+	if pe.Status != "" {
+		m["status"] = pe.Status
+	}
+	return m
 }
 
-func PlanEventWrite(ctx context.Context, log logger.Log, result, body string, color ansi.Color) {
-	pe := PlanEvent{Result: result, Body: body, Color: color, Labels: migration.GetContextLabels(ctx)}
+func PlanEventWrite(ctx context.Context, log logger.Log, revision, body string, status PlanStatus) {
+	pe := PlanEvent{Revision: revision, Body: body, Status: status, Labels: migration.GetContextLabels(ctx)}
 	logger.MaybeTriggerContext(ctx, log, pe)
 }
