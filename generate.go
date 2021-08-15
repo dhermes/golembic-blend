@@ -84,8 +84,11 @@ func (aa *applyAction) Action(ctx context.Context, pool *db.Connection, tx *sql.
 
 	if err != nil {
 		if suite != nil {
-			d := fmt.Sprintf("%s: %s", aa.Migration.Revision, aa.Migration.ExtendedDescription())
-			return suite.Error(migration.WithLabel(ctx, d), err)
+			suite.Failed++
+			suite.Total++
+			d := fmt.Sprintf("%s; %v", aa.Migration.ExtendedDescription(), err)
+			PlanEventWrite(ctx, aa.m.Log, aa.Migration.Revision, d, ansi.ColorRed)
+			return err
 		}
 		return err
 	}
@@ -93,7 +96,7 @@ func (aa *applyAction) Action(ctx context.Context, pool *db.Connection, tx *sql.
 	if suite != nil {
 		suite.Applied++
 		suite.Total++
-		suite.Write(ctx, aa.Migration.Revision, aa.Migration.ExtendedDescription())
+		PlanEventWrite(ctx, aa.m.Log, aa.Migration.Revision, aa.Migration.ExtendedDescription(), ansi.ColorBlue)
 	}
 
 	return nil
