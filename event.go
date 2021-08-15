@@ -22,7 +22,9 @@ var (
 )
 
 type PlanEvent struct {
+	Result string
 	Body   string
+	Color  ansi.Color
 	Labels []string
 }
 
@@ -34,7 +36,7 @@ func (PlanEvent) GetFlag() string {
 func (pe PlanEvent) WriteText(tf logger.TextFormatter, wr io.Writer) {
 	fmt.Fprint(wr, tf.Colorize("--", ansi.ColorLightBlack))
 	fmt.Fprint(wr, logger.Space)
-	fmt.Fprint(wr, tf.Colorize("plan", ansi.ColorGreen))
+	fmt.Fprint(wr, tf.Colorize(pe.Result, pe.Color))
 
 	if len(pe.Labels) > 0 {
 		fmt.Fprint(wr, logger.Space)
@@ -52,13 +54,13 @@ func (pe PlanEvent) WriteText(tf logger.TextFormatter, wr io.Writer) {
 // Decompose implements logger.JSONWritable.
 func (pe PlanEvent) Decompose() map[string]interface{} {
 	return map[string]interface{}{
-		"result": "plan",
+		"result": pe.Result,
 		"labels": pe.Labels,
 		"body":   pe.Body,
 	}
 }
 
-func PlanEventWrite(ctx context.Context, log logger.Log, body string) {
-	e := PlanEvent{Body: body, Labels: migration.GetContextLabels(ctx)}
-	logger.MaybeTriggerContext(ctx, log, e)
+func PlanEventWrite(ctx context.Context, log logger.Log, result, body string, color ansi.Color) {
+	pe := PlanEvent{Result: result, Body: body, Color: color, Labels: migration.GetContextLabels(ctx)}
+	logger.MaybeTriggerContext(ctx, log, pe)
 }

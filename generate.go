@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 
+	"github.com/blend/go-sdk/ansi"
 	"github.com/blend/go-sdk/db"
 	"github.com/blend/go-sdk/db/migration"
 	"github.com/blend/go-sdk/ex"
@@ -54,7 +55,7 @@ func (pa *planAction) Action(ctx context.Context, pool *db.Connection, tx *sql.T
 		return nil
 	}
 
-	PlanEventWrite(ctx, pa.Suite.Log, "Determine migrations that need to be applied")
+	PlanEventWrite(ctx, pa.Suite.Log, "plan", "Determine migrations that need to be applied", ansi.ColorGreen)
 
 	migrations, err := pa.m.Plan(ctx, pool, tx, OptApplyVerifyHistory(pa.m.VerifyHistory))
 	if err != nil {

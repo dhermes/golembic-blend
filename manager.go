@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/blend/go-sdk/ansi"
 	"github.com/blend/go-sdk/db"
 	dbmigration "github.com/blend/go-sdk/db/migration"
 	"github.com/blend/go-sdk/ex"
@@ -131,7 +132,7 @@ func (m *Manager) filterMigrations(ctx context.Context, pool *db.Connection, tx 
 		}
 
 		body := fmt.Sprintf(format, latest)
-		PlanEventWrite(ctx, m.Log, body)
+		PlanEventWrite(ctx, m.Log, "plan", body, ansi.ColorGreen)
 		return pastMigrationCount, nil, nil
 	}
 
