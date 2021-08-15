@@ -3,7 +3,6 @@ package golembic
 import (
 	"context"
 	"database/sql"
-	"fmt"
 
 	"github.com/blend/go-sdk/ansi"
 	"github.com/blend/go-sdk/db"
@@ -86,8 +85,7 @@ func (aa *applyAction) Action(ctx context.Context, pool *db.Connection, tx *sql.
 		if suite != nil {
 			suite.Failed++
 			suite.Total++
-			d := fmt.Sprintf("%s; %v", aa.Migration.ExtendedDescription(), err)
-			PlanEventWrite(ctx, aa.m.Log, aa.Migration.Revision, d, ansi.ColorRed)
+			PlanEventWrite(ctx, aa.m.Log, aa.Migration.Revision, aa.Migration.ExtendedDescription(), ansi.ColorRed)
 			return err
 		}
 		return err
