@@ -38,7 +38,7 @@ func TestGenerateSuite_HappyPath(t *testing.T) {
 	var logBuffer bytes.Buffer
 	log := logger.Memory(&logBuffer)
 
-	migrations, err := makeSequence(t1, t2)
+	migrations, err := makeSequence(t1, t2, 3, false)
 	it.Nil(err)
 	m, err := golembic.NewManager(
 		golembic.OptManagerSequence(migrations),
@@ -110,9 +110,9 @@ func TestGenerateSuite_StaleCheckout(t *testing.T) {
 
 	// Happy path once (no need to verify logs, see above)
 	suffix := anyLowercase(6)
-	mt := fmt.Sprintf("foo_%s_migrations", suffix)
-	t1 := fmt.Sprintf("foo1_%s", suffix)
-	t2 := fmt.Sprintf("foo2_%s", suffix)
+	mt := fmt.Sprintf("bar_%s_migrations", suffix)
+	t1 := fmt.Sprintf("bar1_%s", suffix)
+	t2 := fmt.Sprintf("bar2_%s", suffix)
 	t.Cleanup(func() {
 		err1 := dropTable(ctx, pool, mt)
 		err2 := dropTable(ctx, pool, t1)
@@ -124,7 +124,7 @@ func TestGenerateSuite_StaleCheckout(t *testing.T) {
 	var logBuffer bytes.Buffer
 	log := logger.Memory(&logBuffer)
 
-	migrations, err := makeSequence(t1, t2)
+	migrations, err := makeSequence(t1, t2, 3, false)
 	it.Nil(err)
 	m, err := golembic.NewManager(
 		golembic.OptManagerSequence(migrations),
@@ -224,7 +224,76 @@ func TestGenerateSuite_StaleCheckout(t *testing.T) {
 	logBuffer.Reset()
 }
 
-func makeSequence(t1, t2 string) (*golembic.Migrations, error) {
+func TestGenerateSuite_Milestone(t *testing.T) {
+	it := assert.New(t)
+
+	ctx := context.TODO()
+	pool := defaultDB()
+	it.NotNil(pool)
+
+	suffix := anyLowercase(6)
+	mt := fmt.Sprintf("baz_%s_migrations", suffix)
+	t1 := fmt.Sprintf("baz1_%s", suffix)
+	t2 := fmt.Sprintf("baz2_%s", suffix)
+	t.Cleanup(func() {
+		err1 := dropTable(ctx, pool, mt)
+		err2 := dropTable(ctx, pool, t1)
+		err3 := dropTable(ctx, pool, t2)
+		it.Nil(err1)
+		it.Nil(err2)
+		it.Nil(err3)
+	})
+	var logBuffer bytes.Buffer
+	log := logger.Memory(&logBuffer)
+
+	// Run **just** the first migration
+	migrations1, err := makeSequence(t1, t2, 1, true)
+	it.Nil(err)
+	m1, err := golembic.NewManager(
+		golembic.OptManagerSequence(migrations1),
+		golembic.OptManagerMetadataTable(mt),
+		golembic.OptManagerLog(log),
+	)
+	it.Nil(err)
+	suite, err := golembic.GenerateSuite(m1)
+	it.Nil(err)
+	err = golembic.ApplyDynamic(ctx, suite, pool)
+	it.Nil(err)
+	logLines := []string{
+		fmt.Sprintf("[db.migration] -- applied -- Check table does not exist: %s", mt),
+		"[db.migration] -- plan -- Determine migrations that need to be applied",
+		"[db.migration] -- aa60f058f5f5 -- Create first table",
+		"[db.migration.stats] 2 applied 0 skipped 0 failed 2 total",
+		"",
+	}
+	it.Equal(strings.Join(logLines, "\n"), logBuffer.String())
+	logBuffer.Reset()
+
+	// **Try** to run all 3 migrations, with a milestone in the middle
+	migrations3, err := makeSequence(t1, t2, 3, true)
+	it.Nil(err)
+	m3, err := golembic.NewManager(
+		golembic.OptManagerSequence(migrations3),
+		golembic.OptManagerMetadataTable(mt),
+		golembic.OptManagerLog(log),
+	)
+	it.Nil(err)
+	suite, err = golembic.GenerateSuite(m3)
+	it.Nil(err)
+	err = golembic.ApplyDynamic(ctx, suite, pool)
+	it.Equal("If a migration sequence contains a milestone, it must be the last migration", fmt.Sprintf("%v", err))
+	logLines = []string{
+		fmt.Sprintf("[db.migration] -- skipped -- Check table does not exist: %s", mt),
+		"[db.migration] -- plan -- Determine migrations that need to be applied",
+		"[db.migration] -- failed -- Revision ab1208989a3f (1 / 2 migrations)",
+		"[db.migration.stats] 0 applied 1 skipped 0 failed 1 total",
+		"",
+	}
+	it.Equal(strings.Join(logLines, "\n"), logBuffer.String())
+	logBuffer.Reset()
+}
+
+func makeSequence(t1, t2 string, length int, milestone bool) (*golembic.Migrations, error) {
 	ct1 := fmt.Sprintf("CREATE TABLE %s ( bar TEXT )", golembic.QuoteIdentifier(t1))
 	root, err := golembic.NewMigration(
 		golembic.OptRevision("aa60f058f5f5"),
@@ -244,20 +313,24 @@ func makeSequence(t1, t2 string) (*golembic.Migrations, error) {
 	qt2 := golembic.QuoteIdentifier(t2)
 	at1 := fmt.Sprintf("ALTER TABLE %s ADD COLUMN quux TEXT", qt1)
 	ct2 := fmt.Sprintf("CREATE TABLE %s ( baz TEXT )", qt2)
-	err = migrations.RegisterManyOpt(
-		[]golembic.MigrationOption{
+	opts := [][]golembic.MigrationOption{
+		{
 			golembic.OptPrevious("aa60f058f5f5"),
 			golembic.OptRevision("ab1208989a3f"),
+			golembic.OptMilestone(milestone),
 			golembic.OptDescription("Alter first table"),
 			golembic.OptUpFromSQL(at1),
 		},
-		[]golembic.MigrationOption{
+		{
 			golembic.OptPrevious("ab1208989a3f"),
 			golembic.OptRevision("60a33b9d4c77"),
 			golembic.OptDescription("Add second table"),
 			golembic.OptUpFromSQL(ct2),
 		},
-	)
+	}
+	// NOTE: This will panic for many values of `length`, caller must vet.
+	opts = opts[:length-1]
+	err = migrations.RegisterManyOpt(opts...)
 	if err != nil {
 		return nil, err
 	}
