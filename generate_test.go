@@ -3,17 +3,26 @@ package golembic_test
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
 	"math/rand"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/blend/go-sdk/assert"
+	"github.com/blend/go-sdk/bufferutil"
 	"github.com/blend/go-sdk/db"
 	"github.com/blend/go-sdk/logger"
 
 	golembic "github.com/dhermes/golembic-blend"
+)
+
+// NOTE: Ensure that
+//       * `jsonNoTimestamp` satisfies `logger.WriteFormatter`.
+var (
+	_ logger.WriteFormatter = (*jsonNoTimestamp)(nil)
 )
 
 func TestGenerateSuite_HappyPath(t *testing.T) {
@@ -331,6 +340,70 @@ func TestGenerateSuite_Milestone(t *testing.T) {
 	logBuffer.Reset()
 }
 
+func TestGenerateSuite_FailedDDL(t *testing.T) {
+	it := assert.New(t)
+
+	ctx := context.TODO()
+	pool := defaultDB()
+	it.NotNil(pool)
+
+	suffix := anyLowercase(6)
+	mt := fmt.Sprintf("quux_%s_migrations", suffix)
+	t1 := fmt.Sprintf("quux1_%s", suffix)
+	t.Cleanup(func() {
+		err1 := dropTable(ctx, pool, mt)
+		err2 := dropTable(ctx, pool, t1)
+		it.Nil(err1)
+		it.Nil(err2)
+	})
+
+	qt1 := golembic.QuoteIdentifier(t1)
+	ct1 := fmt.Sprintf("CREATE TABLE %s ( bar TEXT )", qt1)
+	root, err := golembic.NewMigration(
+		golembic.OptRevision("af808e6e4d5b"),
+		golembic.OptDescription("Create table first time"),
+		golembic.OptUpFromSQL(ct1),
+	)
+	it.Nil(err)
+	migrations, err := golembic.NewSequence(*root)
+	it.Nil(err)
+	err = migrations.RegisterManyOpt(
+		[]golembic.MigrationOption{
+			golembic.OptPrevious("af808e6e4d5b"),
+			golembic.OptRevision("52d1d91b4f7e"),
+			golembic.OptDescription("Create table second time"),
+			golembic.OptUpFromSQL(ct1),
+		},
+	)
+	it.Nil(err)
+
+	var logBuffer bytes.Buffer
+	of := newJSONNoTimestamp()
+	log := logger.Memory(&logBuffer, logger.OptFormatter(of))
+	m, err := golembic.NewManager(
+		golembic.OptManagerSequence(migrations),
+		golembic.OptManagerMetadataTable(mt),
+		golembic.OptManagerLog(log),
+	)
+	it.Nil(err)
+	suite, err := golembic.GenerateSuite(m)
+	it.Nil(err)
+	err = golembic.ApplyDynamic(ctx, suite, pool)
+	expected := fmt.Sprintf("ERROR: relation %q already exists (SQLSTATE 42P07); %s", t1, ct1)
+	it.Equal(expected, fmt.Sprintf("%v", err))
+
+	logLines := []string{
+		fmt.Sprintf(`{"body":"Check table does not exist: %s","flag":"db.migration","labels":null,"result":"applied"}`, mt),
+		`{"body":"Determine migrations that need to be applied","flag":"db.migration","labels":null,"result":"plan"}`,
+		`{"body":"Create table first time","flag":"db.migration","labels":null,"revision":"af808e6e4d5b","status":"applied"}`,
+		`{"body":"Create table second time","flag":"db.migration","labels":null,"revision":"52d1d91b4f7e","status":"failed"}`,
+		`{"applied":2,"failed":1,"flag":"db.migration.stats","skipped":0,"total":3}`,
+		"",
+	}
+	it.Equal(strings.Join(logLines, "\n"), logBuffer.String())
+	logBuffer.Reset()
+}
+
 func makeSequence(t1, t2 string, length int, milestone bool) (*golembic.Migrations, error) {
 	ct1 := fmt.Sprintf("CREATE TABLE %s ( bar TEXT )", golembic.QuoteIdentifier(t1))
 	root, err := golembic.NewMigration(
@@ -389,5 +462,42 @@ func anyLowercase(n int) string {
 func dropTable(ctx context.Context, pool *db.Connection, name string) error {
 	statement := fmt.Sprintf("DROP TABLE IF EXISTS %s", golembic.QuoteIdentifier(name))
 	_, err := pool.Invoke(db.OptContext(ctx)).Exec(statement)
+	return err
+}
+
+type jsonNoTimestamp struct {
+	Wrapped *logger.JSONOutputFormatter
+}
+
+func newJSONNoTimestamp() *jsonNoTimestamp {
+	jf := &logger.JSONOutputFormatter{
+		BufferPool: bufferutil.NewPool(logger.DefaultBufferPoolSize),
+	}
+	return &jsonNoTimestamp{Wrapped: jf}
+}
+
+func (jnt jsonNoTimestamp) GetScopeFields(ctx context.Context, e logger.Event) map[string]interface{} {
+	fields := jnt.Wrapped.GetScopeFields(ctx, e)
+	delete(fields, logger.FieldTimestamp)
+	return fields
+}
+
+func (jw jsonNoTimestamp) WriteFormat(ctx context.Context, output io.Writer, e logger.Event) error {
+	buffer := jw.Wrapped.BufferPool.Get()
+	defer jw.Wrapped.BufferPool.Put(buffer)
+
+	encoder := json.NewEncoder(buffer)
+	if jw.Wrapped.Pretty {
+		encoder.SetIndent(jw.Wrapped.PrettyPrefixOrDefault(), jw.Wrapped.PrettyIndentOrDefault())
+	}
+	if decomposer, ok := e.(logger.JSONWritable); ok {
+		fields := jw.Wrapped.CombineFields(jw.GetScopeFields(ctx, e), decomposer.Decompose())
+		if err := encoder.Encode(fields); err != nil {
+			return err
+		}
+	} else if err := encoder.Encode(e); err != nil {
+		return err
+	}
+	_, err := io.Copy(output, buffer)
 	return err
 }
