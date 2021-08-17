@@ -56,8 +56,8 @@ func TestGenerateSuite_HappyPath(t *testing.T) {
 		fmt.Sprintf("[db.migration] -- applied -- Check table does not exist: %s", mt),
 		"[db.migration] -- plan -- Determine migrations that need to be applied",
 		"[db.migration] -- aa60f058f5f5 -- Create table",
+		"[db.migration] -- ab1208989a3f -- Alter first table",
 		"[db.migration] -- 60a33b9d4c77 -- Add second table",
-		"[db.migration] -- ab1208989a3f -- Alter second table",
 		"[db.migration.stats] 4 applied 0 skipped 0 failed 4 total",
 		"",
 	}
@@ -72,8 +72,29 @@ func TestGenerateSuite_HappyPath(t *testing.T) {
 	logLines = []string{
 		fmt.Sprintf("[db.migration] -- skipped -- Check table does not exist: %s", mt),
 		"[db.migration] -- plan -- Determine migrations that need to be applied",
-		"[db.migration] -- plan -- No migrations to run; latest revision: ab1208989a3f",
+		"[db.migration] -- plan -- No migrations to run; latest revision: 60a33b9d4c77",
 		"[db.migration.stats] 0 applied 1 skipped 0 failed 1 total",
+		"",
+	}
+	it.Equal(strings.Join(logLines, "\n"), logBuffer.String())
+	logBuffer.Reset()
+
+	// Manually delete the last migration and run again
+	err = dropTable(ctx, pool, t2)
+	it.Nil(err)
+	statement := fmt.Sprintf("DELETE FROM %s WHERE revision = $1", golembic.QuoteIdentifier(mt))
+	_, err = pool.Invoke(db.OptContext(ctx)).Exec(statement, "60a33b9d4c77")
+	it.Nil(err)
+
+	suite, err = golembic.GenerateSuite(m)
+	it.Nil(err)
+	err = golembic.ApplyDynamic(ctx, suite, pool)
+	it.Nil(err)
+	logLines = []string{
+		fmt.Sprintf("[db.migration] -- skipped -- Check table does not exist: %s", mt),
+		"[db.migration] -- plan -- Determine migrations that need to be applied",
+		"[db.migration] -- 60a33b9d4c77 -- Add second table",
+		"[db.migration.stats] 1 applied 1 skipped 0 failed 2 total",
 		"",
 	}
 	it.Equal(strings.Join(logLines, "\n"), logBuffer.String())
@@ -96,21 +117,22 @@ func makeSequence(t1, t2 string) (*golembic.Migrations, error) {
 		return nil, err
 	}
 
+	qt1 := golembic.QuoteIdentifier(t1)
 	qt2 := golembic.QuoteIdentifier(t2)
+	at1 := fmt.Sprintf("ALTER TABLE %s ADD COLUMN quux TEXT", qt1)
 	ct2 := fmt.Sprintf("CREATE TABLE %s ( baz TEXT )", qt2)
-	at2 := fmt.Sprintf("ALTER TABLE %s ADD COLUMN quux TEXT", qt2)
 	err = migrations.RegisterManyOpt(
 		[]golembic.MigrationOption{
 			golembic.OptPrevious("aa60f058f5f5"),
+			golembic.OptRevision("ab1208989a3f"),
+			golembic.OptDescription("Alter first table"),
+			golembic.OptUpFromSQL(at1),
+		},
+		[]golembic.MigrationOption{
+			golembic.OptPrevious("ab1208989a3f"),
 			golembic.OptRevision("60a33b9d4c77"),
 			golembic.OptDescription("Add second table"),
 			golembic.OptUpFromSQL(ct2),
-		},
-		[]golembic.MigrationOption{
-			golembic.OptPrevious("60a33b9d4c77"),
-			golembic.OptRevision("ab1208989a3f"),
-			golembic.OptDescription("Alter second table"),
-			golembic.OptUpFromSQL(at2),
 		},
 	)
 	if err != nil {
