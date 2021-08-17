@@ -63,6 +63,21 @@ func TestGenerateSuite_HappyPath(t *testing.T) {
 	}
 	it.Equal(strings.Join(logLines, "\n"), logBuffer.String())
 	logBuffer.Reset()
+
+	// Run again, should be a no-op
+	suite, err = golembic.GenerateSuite(m)
+	it.Nil(err)
+	err = golembic.ApplyDynamic(ctx, suite, pool)
+	it.Nil(err)
+	logLines = []string{
+		fmt.Sprintf("[db.migration] -- skipped -- Check table does not exist: %s", mt),
+		"[db.migration] -- plan -- Determine migrations that need to be applied",
+		"[db.migration] -- plan -- No migrations to run; latest revision: ab1208989a3f",
+		"[db.migration.stats] 0 applied 1 skipped 0 failed 1 total",
+		"",
+	}
+	it.Equal(strings.Join(logLines, "\n"), logBuffer.String())
+	logBuffer.Reset()
 }
 
 func makeSequence(t1, t2 string) (*golembic.Migrations, error) {
