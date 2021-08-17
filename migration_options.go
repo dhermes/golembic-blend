@@ -21,7 +21,7 @@ func OptPrevious(previous string) MigrationOption {
 func OptRevision(revision string) MigrationOption {
 	return func(m *Migration) error {
 		if revision == "" {
-			return ErrMissingRevision
+			return ex.New(ErrMissingRevision)
 		}
 
 		m.Revision = revision
