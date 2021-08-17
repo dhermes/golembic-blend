@@ -1,14 +1,17 @@
 package golembic_test
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"math/rand"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/blend/go-sdk/assert"
 	"github.com/blend/go-sdk/db"
+	"github.com/blend/go-sdk/logger"
 
 	golembic "github.com/dhermes/golembic-blend"
 )
@@ -32,12 +35,15 @@ func TestGenerateSuite_HappyPath(t *testing.T) {
 		it.Nil(err2)
 		it.Nil(err3)
 	})
+	var logBuffer bytes.Buffer
+	log := logger.Memory(&logBuffer)
 
 	migrations, err := makeSequence(t1, t2)
 	it.Nil(err)
 	m, err := golembic.NewManager(
 		golembic.OptManagerSequence(migrations),
 		golembic.OptManagerMetadataTable(mt),
+		golembic.OptManagerLog(log),
 	)
 	it.Nil(err)
 	suite, err := golembic.GenerateSuite(m)
@@ -45,6 +51,18 @@ func TestGenerateSuite_HappyPath(t *testing.T) {
 
 	err = golembic.ApplyDynamic(ctx, suite, pool)
 	it.Nil(err)
+
+	logLines := []string{
+		fmt.Sprintf("[db.migration] -- applied -- Check table does not exist: %s", mt),
+		"[db.migration] -- plan -- Determine migrations that need to be applied",
+		"[db.migration] -- aa60f058f5f5 -- Create table",
+		"[db.migration] -- 60a33b9d4c77 -- Add second table",
+		"[db.migration] -- ab1208989a3f -- Alter second table",
+		"[db.migration.stats] 4 applied 0 skipped 0 failed 4 total",
+		"",
+	}
+	it.Equal(strings.Join(logLines, "\n"), logBuffer.String())
+	logBuffer.Reset()
 }
 
 func makeSequence(t1, t2 string) (*golembic.Migrations, error) {
