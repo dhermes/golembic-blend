@@ -158,6 +158,29 @@ func TestGenerateSuite_StaleCheckout(t *testing.T) {
 	}
 	it.Equal(strings.Join(logLines, "\n"), logBuffer.String())
 	logBuffer.Reset()
+
+	// Same failure, but with `--verify-history` turned on
+	mVerify, err := golembic.NewManager(
+		golembic.OptManagerSequence(migrations),
+		golembic.OptManagerMetadataTable(mt),
+		golembic.OptManagerLog(log),
+		golembic.OptManagerVerifyHistory(true),
+	)
+	it.Nil(err)
+	suite, err = golembic.GenerateSuite(mVerify)
+	it.Nil(err)
+	err = golembic.ApplyDynamic(ctx, suite, pool)
+	// `No migration registered for revision; Revision: "not-in-sequence"`
+	it.Equal("Migration stored in SQL doesn't match sequence", fmt.Sprintf("%v", err))
+	logLines = []string{
+		fmt.Sprintf("[db.migration] -- skipped -- Check table does not exist: %s", mt),
+		"[db.migration] -- plan -- Determine migrations that need to be applied",
+		"[db.migration] -- failed -- Sequence has 3 migrations but 4 are stored in the table",
+		"[db.migration.stats] 0 applied 1 skipped 0 failed 1 total",
+		"",
+	}
+	it.Equal(strings.Join(logLines, "\n"), logBuffer.String())
+	logBuffer.Reset()
 }
 
 func makeSequence(t1, t2 string) (*golembic.Migrations, error) {
