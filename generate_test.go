@@ -291,6 +291,44 @@ func TestGenerateSuite_Milestone(t *testing.T) {
 	}
 	it.Equal(strings.Join(logLines, "\n"), logBuffer.String())
 	logBuffer.Reset()
+
+	// Apply **only** milestone before trying all 3 migrations
+	migrations2, err := makeSequence(t1, t2, 2, true)
+	it.Nil(err)
+	m2, err := golembic.NewManager(
+		golembic.OptManagerSequence(migrations2),
+		golembic.OptManagerMetadataTable(mt),
+		golembic.OptManagerLog(log),
+	)
+	it.Nil(err)
+	suite, err = golembic.GenerateSuite(m2)
+	it.Nil(err)
+	err = golembic.ApplyDynamic(ctx, suite, pool)
+	it.Nil(err)
+	logLines = []string{
+		fmt.Sprintf("[db.migration] -- skipped -- Check table does not exist: %s", mt),
+		"[db.migration] -- plan -- Determine migrations that need to be applied",
+		"[db.migration] -- ab1208989a3f -- Alter first table [MILESTONE]",
+		"[db.migration.stats] 1 applied 1 skipped 0 failed 2 total",
+		"",
+	}
+	it.Equal(strings.Join(logLines, "\n"), logBuffer.String())
+	logBuffer.Reset()
+
+	// **Finally** apply all 3 migrations
+	suite, err = golembic.GenerateSuite(m3)
+	it.Nil(err)
+	err = golembic.ApplyDynamic(ctx, suite, pool)
+	it.Nil(err)
+	logLines = []string{
+		fmt.Sprintf("[db.migration] -- skipped -- Check table does not exist: %s", mt),
+		"[db.migration] -- plan -- Determine migrations that need to be applied",
+		"[db.migration] -- 60a33b9d4c77 -- Add second table",
+		"[db.migration.stats] 1 applied 1 skipped 0 failed 2 total",
+		"",
+	}
+	it.Equal(strings.Join(logLines, "\n"), logBuffer.String())
+	logBuffer.Reset()
 }
 
 func makeSequence(t1, t2 string, length int, milestone bool) (*golembic.Migrations, error) {
