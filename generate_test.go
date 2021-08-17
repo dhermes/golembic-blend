@@ -170,12 +170,53 @@ func TestGenerateSuite_StaleCheckout(t *testing.T) {
 	suite, err = golembic.GenerateSuite(mVerify)
 	it.Nil(err)
 	err = golembic.ApplyDynamic(ctx, suite, pool)
-	// `No migration registered for revision; Revision: "not-in-sequence"`
 	it.Equal("Migration stored in SQL doesn't match sequence", fmt.Sprintf("%v", err))
 	logLines = []string{
 		fmt.Sprintf("[db.migration] -- skipped -- Check table does not exist: %s", mt),
 		"[db.migration] -- plan -- Determine migrations that need to be applied",
 		"[db.migration] -- failed -- Sequence has 3 migrations but 4 are stored in the table",
+		"[db.migration.stats] 0 applied 1 skipped 0 failed 1 total",
+		"",
+	}
+	it.Equal(strings.Join(logLines, "\n"), logBuffer.String())
+	logBuffer.Reset()
+
+	// Replace last revision with nonsense
+	statement = fmt.Sprintf(
+		"DELETE FROM %s WHERE revision IN ($1, $2)",
+		golembic.QuoteIdentifier(mt),
+	)
+	_, err = pool.Invoke(db.OptContext(ctx)).Exec(statement, "not-in-sequence", "60a33b9d4c77")
+	it.Nil(err)
+	statement = fmt.Sprintf(
+		"INSERT INTO %s (serial_id, revision, previous) VALUES ($1, $2, $3)",
+		golembic.QuoteIdentifier(mt),
+	)
+	_, err = pool.Invoke(db.OptContext(ctx)).Exec(statement, 2, "not-in-sequence", "ab1208989a3f")
+	it.Nil(err)
+
+	suite, err = golembic.GenerateSuite(m)
+	it.Nil(err)
+	err = golembic.ApplyDynamic(ctx, suite, pool)
+	it.Equal(`No migration registered for revision; Revision: "not-in-sequence"`, fmt.Sprintf("%v", err))
+	logLines = []string{
+		fmt.Sprintf("[db.migration] -- skipped -- Check table does not exist: %s", mt),
+		"[db.migration] -- plan -- Determine migrations that need to be applied",
+		"[db.migration.stats] 0 applied 1 skipped 0 failed 1 total",
+		"",
+	}
+	it.Equal(strings.Join(logLines, "\n"), logBuffer.String())
+	logBuffer.Reset()
+
+	// Replace last revision with nonsense, but with `--verify-history` turned on
+	suite, err = golembic.GenerateSuite(mVerify)
+	it.Nil(err)
+	err = golembic.ApplyDynamic(ctx, suite, pool)
+	it.Equal("Migration stored in SQL doesn't match sequence", fmt.Sprintf("%v", err))
+	logLines = []string{
+		fmt.Sprintf("[db.migration] -- skipped -- Check table does not exist: %s", mt),
+		"[db.migration] -- plan -- Determine migrations that need to be applied",
+		`[db.migration] -- failed -- Stored migration 2: "not-in-sequence:ab1208989a3f" does not match migration "60a33b9d4c77:ab1208989a3f" in sequence`,
 		"[db.migration.stats] 0 applied 1 skipped 0 failed 1 total",
 		"",
 	}
